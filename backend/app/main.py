@@ -7,6 +7,10 @@ app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
+@app.get("/")
+def root():
+    return {"message": "HomeQuest backend is running!"}
+
 @app.post("/users", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return crud.create_user(db, user)
