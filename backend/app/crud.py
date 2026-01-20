@@ -10,3 +10,13 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 def get_users(db: Session):
     return db.query(models.User).all()
+
+def create_group(db: Session, group: schemas.GroupCreate):
+    db_group = models.Group(name=group.name)
+    db.add(db_group)
+    db.commit()
+    db.refresh(db_group)
+    return db_group
+
+def get_groups(db: Session):
+    return db.query(models.Group).all()

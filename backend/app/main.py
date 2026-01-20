@@ -14,3 +14,11 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @app.get("/users", response_model=list[schemas.User])
 def read_users(db: Session = Depends(get_db)):
     return crud.get_users(db)
+
+@app.post("/groups", response_model=schemas.Group)
+def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
+    return crud.create_group(db, group)
+
+@app.get("/groups", response_model=list[schemas.Group])
+def read_groups(db: Session = Depends(get_db)):
+    return crud.get_groups(db)

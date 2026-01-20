@@ -6,3 +6,9 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
+
+class Group(Base):
+    __tablename__ = "groups"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)

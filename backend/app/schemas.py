@@ -8,4 +8,14 @@ class User(BaseModel):
     name: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class GroupCreate(BaseModel):
+    name: str
+
+class Group(BaseModel):
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
