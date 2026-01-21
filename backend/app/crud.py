@@ -18,7 +18,7 @@ def get_users(db: Session):
             .filter(models.UserGroup.user_id == user.id)
             .all()
         )
-    group_ids = [gid for (gid,) in group_ids]
+        group_ids = [gid for (gid,) in group_ids]
     
     results.append({
         "id":user.id,
