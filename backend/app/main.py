@@ -26,3 +26,7 @@ def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
 @app.get("/groups", response_model=list[schemas.Group])
 def read_groups(db: Session = Depends(get_db)):
     return crud.get_groups(db)
+
+@app.post("/groups/{group_id}/users/{user_id}")
+def add_user_to_group(group_id: int, user_id: int, db: Session = Depends(get_db)):
+    return crud.add_user_to_group(db, user_id, group_id)
