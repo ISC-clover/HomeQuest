@@ -12,10 +12,25 @@ def get_users(db: Session):
     return db.query(models.User).all()
 
 def create_group(db: Session, group: schemas.GroupCreate):
-    db_group = models.Group(name=group.name)
+    db_group = models.Group(
+        name=group.name,
+        owner_user_id=group.owner_user_id,
+        reward_shop=None
+    )
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
+    
+    owner_link = models.UserGroup(
+        user_id=group.owner_user_id,
+        group_id=db_group.id,
+        is_host=True,
+        points=0
+    )
+    db.add(owner_link)
+    db.commit()
+    db.refresh(owner_link)
+    
     return db_group
 
 def get_groups(db: Session):
@@ -27,3 +42,39 @@ def add_user_to_group(db: Session, user_id: int, group_id: int):
     db.commit()
     db.refresh(user_group)
     return user_group
+
+def get_group_detail(db: Session, group_id: int):
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        return None
+    
+    user_groups = (
+        db.query(models.UserGroup, models.User)
+        .join(models.User, models.User.id == models.UserGroup.user_id)
+        .filter(models.UserGroup.group_id == group_id)
+        .all()
+    )
+    
+    users = []
+    hosts = []
+    
+    for ug, user in user_groups:
+        users.append({
+            "id":user.id,
+            "name":user.name,
+            "points":ug.points
+        })
+        if ug.is_host:
+            hosts.append({
+                "id":user.id,
+                "name":user.name
+            })
+    
+    return{
+        "id":group.id,
+        "name":group.name,
+        "owner_user_id":group.owner_user_id,
+        "reward_shop":group.reward_shop,
+        "hosts":hosts,
+        "users":users
+    }
