@@ -33,6 +33,7 @@ class UserInGroup(BaseModel):
     id: int
     name: str
     points: int
+    is_host: bool
     
     class Config:
         from_attributes = True
@@ -44,6 +45,14 @@ class GroupDetail(BaseModel):
     reward_shop: str | None
     hosts: list[HostUser]
     users: list[UserInGroup]
+    
+    class Config:
+        from_attributes = True
+
+class UserWithGroups(BaseModel):
+    id: int
+    name: str
+    groups: list[int]
     
     class Config:
         from_attributes = True

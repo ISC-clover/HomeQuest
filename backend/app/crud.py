@@ -9,7 +9,24 @@ def create_user(db: Session, user: schemas.UserCreate):
     return db_user
 
 def get_users(db: Session):
-    return db.query(models.User).all()
+    users = db.query(models.User).all()
+    results = []
+    
+    for user in users:
+        group_ids = (
+            db.query(models.UserGroup.group_id)
+            .filter(models.UserGroup.user_id == user.id)
+            .all()
+        )
+    group_ids = [gid for (gid,) in group_ids]
+    
+    results.append({
+        "id":user.id,
+        "name":user.name,
+        "groups":group_ids
+    })
+    
+    return results
 
 def create_group(db: Session, group: schemas.GroupCreate):
     db_group = models.Group(
@@ -62,7 +79,8 @@ def get_group_detail(db: Session, group_id: int):
         users.append({
             "id":user.id,
             "name":user.name,
-            "points":ug.points
+            "points":ug.points,
+            "is_host":ug.is_host
         })
         if ug.is_host:
             hosts.append({
