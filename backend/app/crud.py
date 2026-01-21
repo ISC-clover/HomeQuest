@@ -20,11 +20,11 @@ def get_users(db: Session):
         )
         group_ids = [gid for (gid,) in group_ids]
     
-    results.append({
-        "id":user.id,
-        "name":user.name,
-        "groups":group_ids
-    })
+        results.append({
+            "id":user.id,
+            "name":user.name,
+            "groups":group_ids
+        })
     
     return results
 
