@@ -7,8 +7,7 @@ class User(BaseModel):
     id: int
     name: str
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class GroupCreate(BaseModel):
     name: str
@@ -19,15 +18,13 @@ class Group(BaseModel):
     name: str
     owner_user_id: int
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class HostUser(BaseModel):
     id: int
     name: str
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class UserInGroup(BaseModel):
     id: int
@@ -35,8 +32,7 @@ class UserInGroup(BaseModel):
     points: int
     is_host: bool
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class GroupDetail(BaseModel):
     id: int
@@ -46,13 +42,11 @@ class GroupDetail(BaseModel):
     hosts: list[HostUser]
     users: list[UserInGroup]
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 class UserWithGroups(BaseModel):
     id: int
     name: str
     groups: list[int]
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
