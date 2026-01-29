@@ -1,8 +1,19 @@
 from sqlalchemy.orm import Session
+import models, schemas, auth
+import os
 import models, schemas
 
+PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
+
+# --- User ---
 def create_user(db: Session, user: schemas.UserCreate):
-    db_user = models.User(name=user.name)
+    # auth.py の関数を使って安全にハッシュ化
+    hashed_password = auth.get_password_hash(user.password)
+    
+    db_user = models.User(
+        user_name=user.user_name,
+        password=hashed_password
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -21,12 +32,12 @@ def get_users(db: Session):
         group_ids = [gid for (gid,) in group_ids]
     
         results.append({
-            "id":user.id,
-            "name":user.name,
-            "groups":group_ids
+            "id": user.id,
+            "user_name": user.user_name,
+            "groups": group_ids
         })
-    
     return results
+
 
 def create_group(db: Session, group: schemas.GroupCreate):
     db_group = models.Group(
