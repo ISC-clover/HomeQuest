@@ -18,6 +18,8 @@ class Group(Base):
     group_name = Column(String, index=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"))
     
+    members = relationship("UserGroup", back_populates="group")
+    
     shops = relationship("Shop", back_populates="group")
     quests = relationship("Quest", back_populates="group")
 

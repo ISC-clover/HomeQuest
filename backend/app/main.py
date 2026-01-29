@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from database import Base, engine, get_db
-import models, schemas, crud
+import models, schemas, crud, auth
 from sqlalchemy.orm import Session
 
 app = FastAPI()
@@ -55,3 +56,31 @@ def create_shop_item(group_id: int, item: schemas.ShopCreate, db: Session = Depe
 @app.post("/groups/{group_id}/quests", response_model=schemas.Quest)
 def create_quest(group_id: int, quest: schemas.QuestCreate, db: Session = Depends(get_db)):
     return crud.create_quest(db, quest, group_id)
+
+# --- Login Endpoint (NEW) ---
+@app.post("/token", response_model=schemas.Token)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), 
+    db: Session = Depends(get_db)
+):
+    # ユーザー認証
+    user = auth.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # トークン発行
+    access_token_expires = auth.timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.user_name}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# --- Protected Route Example (NEW) ---
+# このAPIはログインしているユーザーしか叩けません
+@app.get("/users/me", response_model=schemas.User)
+async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+    return current_user

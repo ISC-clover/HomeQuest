@@ -1,18 +1,14 @@
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+import models, schemas, auth
 import os
 import models, schemas
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
 
 # --- User ---
 def create_user(db: Session, user: schemas.UserCreate):
-    # パスワードにペッパーを結合してからハッシュ化
-    # 例: "mypassword" + "secret_pepper" -> "mypasswordsecret_pepper" をハッシュ化
-    salted_password = user.password + PASSWORD_PEPPER
-    hashed_password = pwd_context.hash(salted_password)
+    # auth.py の関数を使って安全にハッシュ化
+    hashed_password = auth.get_password_hash(user.password)
     
     db_user = models.User(
         user_name=user.user_name,

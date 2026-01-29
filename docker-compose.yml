@@ -8,7 +8,8 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgresql://postgres:password@db:5432/homequest"
-      PASSWORD_PEPPER: "change_me"
+      PASSWORD_PEPPER: "your_super_strong_pepper"
+      SECRET_KEY: "your_hyper_strong_key"
 
   db:
     image: postgres:15

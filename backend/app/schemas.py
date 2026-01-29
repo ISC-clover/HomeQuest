@@ -79,3 +79,11 @@ class UserWithGroups(BaseModel):
     groups: list[int]
     
     model_config = {"from_attributes": True}
+    
+# --- Auth / Token ---
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: str | None = None
