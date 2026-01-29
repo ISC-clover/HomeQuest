@@ -5,12 +5,14 @@ from sqlalchemy.orm import Session
 
 app = FastAPI()
 
+# データベースのテーブル作成（更新があった場合は一度DBをリセットするか、alembic等でマイグレーションが必要ですが、開発中はDBファイルを削除して再起動が手っ取り早いです）
 Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def root():
     return {"message": "HomeQuest backend is running!"}
 
+# --- Users ---
 @app.post("/users", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return crud.create_user(db, user)
@@ -19,6 +21,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 def read_users(db: Session = Depends(get_db)):
     return crud.get_users(db)
 
+# --- Groups ---
 @app.post("/groups", response_model=schemas.Group)
 def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
     owner = db.query(models.User).filter(models.User.id == group.owner_user_id).first()
@@ -30,13 +33,25 @@ def create_group(group: schemas.GroupCreate, db: Session = Depends(get_db)):
 def read_groups(db: Session = Depends(get_db)):
     return crud.get_groups(db)
 
-@app.post("/groups/{group_id}/users/{user_id}")
-def add_user_to_group(group_id: int, user_id: int, db: Session = Depends(get_db)):
-    return crud.add_user_to_group(db, user_id, group_id)
-
 @app.get("/groups/{group_id}", response_model=schemas.GroupDetail)
 def read_group_detail(group_id: int, db: Session = Depends(get_db)):
     group = crud.get_group_detail(db, group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Group not found")
     return group
+
+# グループへのユーザー参加
+@app.post("/groups/{group_id}/users/{user_id}")
+def add_user_to_group(group_id: int, user_id: int, db: Session = Depends(get_db)):
+    # 実際はここで「ユーザーが存在するか」「グループが存在するか」のチェックを入れるとより安全です
+    return crud.add_user_to_group(db, user_id, group_id)
+
+# --- Shops (Rewards) ---
+@app.post("/groups/{group_id}/shops", response_model=schemas.Shop)
+def create_shop_item(group_id: int, item: schemas.ShopCreate, db: Session = Depends(get_db)):
+    return crud.create_shop_item(db, item, group_id)
+
+# --- Quests ---
+@app.post("/groups/{group_id}/quests", response_model=schemas.Quest)
+def create_quest(group_id: int, quest: schemas.QuestCreate, db: Session = Depends(get_db)):
+    return crud.create_quest(db, quest, group_id)

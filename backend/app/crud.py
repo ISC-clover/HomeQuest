@@ -1,8 +1,23 @@
 from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+import os
 import models, schemas
 
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
+
+# --- User ---
 def create_user(db: Session, user: schemas.UserCreate):
-    db_user = models.User(name=user.name)
+    # パスワードにペッパーを結合してからハッシュ化
+    # 例: "mypassword" + "secret_pepper" -> "mypasswordsecret_pepper" をハッシュ化
+    salted_password = user.password + PASSWORD_PEPPER
+    hashed_password = pwd_context.hash(salted_password)
+    
+    db_user = models.User(
+        user_name=user.user_name,
+        password=hashed_password
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -21,12 +36,12 @@ def get_users(db: Session):
         group_ids = [gid for (gid,) in group_ids]
     
         results.append({
-            "id":user.id,
-            "name":user.name,
-            "groups":group_ids
+            "id": user.id,
+            "user_name": user.user_name,
+            "groups": group_ids
         })
-    
     return results
+
 
 def create_group(db: Session, group: schemas.GroupCreate):
     db_group = models.Group(
