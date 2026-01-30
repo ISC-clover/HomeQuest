@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -40,9 +41,11 @@ class Shop(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"))
-    reward_name = Column(String)
-    cost = Column(Integer)
+    item_name = Column(String, index=True)
     description = Column(Text, nullable=True)
+    cost_points = Column(Integer, default=100)
+    
+    limit_per_user = Column(Integer, nullable=True)
     
     group = relationship("Group", back_populates="shops")
 
@@ -51,9 +54,41 @@ class Quest(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("groups.id"))
-    quest_name = Column(String)
+    quest_name = Column(String, index=True)
     description = Column(Text, nullable=True)
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
+    reward_points = Column(Integer, default=10)
+    last_completed_at = Column(DateTime, nullable=True)
+    recurrence = Column(String, default="one_off") 
     
     group = relationship("Group", back_populates="quests")
+    
+class QuestCompletion(Base):
+    __tablename__ = "quest_completions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    quest_id = Column(Integer, ForeignKey("quests.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    
+    completed_at = Column(DateTime, default=datetime.now)
+    
+    quest = relationship("Quest")
+    user = relationship("User")
+    
+class PurchaseHistory(Base):
+    __tablename__ = "purchase_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    
+    shop_item_id = Column(Integer, nullable=True)
+    item_name = Column(String) 
+    cost = Column(Integer)
+    purchased_at = Column(DateTime, default=datetime.now)
+    
+    user = relationship("User")
