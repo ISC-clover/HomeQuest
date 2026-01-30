@@ -10,6 +10,17 @@ services:
       DATABASE_URL: "postgresql://postgres:password@db:5432/homequest"
       PASSWORD_PEPPER: "your_super_strong_pepper"
       SECRET_KEY: "your_hyper_strong_key"
+      TZ: Asia/Tokyo
+
+  frontend:
+    build: ./frontend
+    container_name: homequest-frontend
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
 
   db:
     image: postgres:15
@@ -18,6 +29,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: homequest
+      TZ: Asia/Tokyo
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:

@@ -2,6 +2,8 @@ from sqlalchemy.orm import Session
 import models, schemas, auth
 import os
 import models, schemas
+from datetime import datetime, date
+from zoneinfo import ZoneInfo
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
 
@@ -39,18 +41,17 @@ def get_users(db: Session):
     return results
 
 
-def create_group(db: Session, group: schemas.GroupCreate):
+def create_group(db: Session, group: schemas.GroupCreate, owner_id: int):
     db_group = models.Group(
-        name=group.name,
-        owner_user_id=group.owner_user_id,
-        reward_shop=None
+        group_name=group.group_name,
+        owner_user_id=owner_id,
     )
     db.add(db_group)
     db.commit()
     db.refresh(db_group)
     
     owner_link = models.UserGroup(
-        user_id=group.owner_user_id,
+        user_id=owner_id,
         group_id=db_group.id,
         is_host=True,
         points=0
@@ -83,27 +84,175 @@ def get_group_detail(db: Session, group_id: int):
         .all()
     )
     
-    users = []
-    hosts = []
+    members_list = []
+    hosts_list = []
     
     for ug, user in user_groups:
-        users.append({
-            "id":user.id,
-            "name":user.name,
-            "points":ug.points,
-            "is_host":ug.is_host
-        })
+        member_data = {
+            "id": user.id,
+            "user_name": user.user_name,
+            "points": ug.points,
+            "is_host": ug.is_host
+        }
+        members_list.append(member_data)
+        
         if ug.is_host:
-            hosts.append({
-                "id":user.id,
-                "name":user.name
-            })
-    
-    return{
-        "id":group.id,
-        "name":group.name,
-        "owner_user_id":group.owner_user_id,
-        "reward_shop":group.reward_shop,
-        "hosts":hosts,
-        "users":users
+            host_data = {
+                "id": user.id,
+                "user_name": user.user_name
+            }
+            hosts_list.append(host_data)
+
+    return {
+        "id": group.id,
+        "group_name": group.group_name,
+        "owner_user_id": group.owner_user_id,
+        "hosts": hosts_list,
+        "users": members_list,
+        "shops": group.shops,
+        "quests": group.quests
     }
+    
+def create_quest(db: Session, quest: schemas.QuestCreate, group_id: int):
+    db_quest = models.Quest(
+        quest_name=quest.quest_name,
+        description=quest.description,
+        start_time=quest.start_time,
+        end_time=quest.end_time,
+        reward_points=quest.reward_points,
+        recurrence=quest.recurrence,
+        group_id=group_id
+    )
+    db.add(db_quest)
+    db.commit()
+    db.refresh(db_quest)
+    return db_quest
+
+def create_shop_item(db: Session, shop_item: schemas.ShopCreate, group_id: int):
+    db_item = models.Shop(
+        item_name=shop_item.item_name,
+        description=shop_item.description,
+        cost_points=shop_item.cost_points,
+        limit_per_user=shop_item.limit_per_user,
+        
+        group_id=group_id
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+def purchase_item(db: Session, user_id: int, item_id: int):
+    shop_item = db.query(models.Shop).filter(models.Shop.id == item_id).first()
+    if not shop_item:
+        return None, "Item not found"
+
+    if shop_item.limit_per_user is not None:
+        count = db.query(models.PurchaseHistory).filter(
+            models.PurchaseHistory.user_id == user_id,
+            models.PurchaseHistory.shop_item_id == item_id
+        ).count()
+        
+        if count >= shop_item.limit_per_user:
+            return None, f"Purchase limit reached (Max: {shop_item.limit_per_user})"
+
+    user_group = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == shop_item.group_id
+    ).first()
+    
+    if not user_group:
+        return None, "User not in group"
+
+    if user_group.points < shop_item.cost_points:
+        return None, "Not enough points"
+
+    user_group.points -= shop_item.cost_points
+    
+    history = models.PurchaseHistory(
+        user_id=user_id,
+        group_id=shop_item.group_id,
+        shop_item_id=shop_item.id,
+        item_name=shop_item.item_name,
+        cost=shop_item.cost_points
+    )
+    db.add(history)
+    
+    db.commit()
+    db.refresh(user_group)
+    
+    return user_group, "Success"
+
+def get_user_purchases(db: Session, user_id: int):
+    return db.query(models.PurchaseHistory).filter(
+        models.PurchaseHistory.user_id == user_id
+    ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
+    
+def complete_quest(db: Session, user_id: int, quest_id: int):
+    quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
+    if not quest:
+        return None
+
+    user_group = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == quest.group_id
+    ).first()
+    
+    if not user_group:
+        return None
+
+    jst = ZoneInfo("Asia/Tokyo")
+    now_jst = datetime.now(jst)
+
+    if quest.last_completed_at:
+        last_done_jst = quest.last_completed_at.astimezone(jst)
+        
+        if last_done_jst.date() == now_jst.date():
+            return None
+
+    user_group.points += quest.reward_points
+    
+    new_completion = models.QuestCompletion(
+        quest_id=quest_id,
+        user_id=user_id,
+        group_id=quest.group_id
+    )
+    db.add(new_completion)
+    
+    quest.last_completed_at = now_jst
+    
+    db.commit()
+    db.refresh(user_group)
+    return user_group
+
+def get_group_purchase_history(db: Session, group_id: int):
+    results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(
+        models.PurchaseHistory.group_id == group_id
+    ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
+    
+    logs = []
+    for hist, user in results:
+        logs.append({
+            "id": hist.id,
+            "user_name": user.user_name,
+            "item_name": hist.item_name,
+            "cost": hist.cost,
+            "purchased_at": hist.purchased_at
+        })
+    return logs
+
+def get_group_quest_history(db: Session, group_id: int):
+    results = db.query(models.QuestCompletion, models.User, models.Quest).join(models.User).join(models.Quest).filter(
+        models.QuestCompletion.group_id == group_id
+    ).order_by(models.QuestCompletion.completed_at.desc()).all()
+    
+    logs = []
+    for comp, user, quest in results:
+        logs.append({
+            "id": comp.id,
+            "user_name": user.user_name,
+            "quest_name": quest.quest_name,
+            "reward_points": quest.reward_points,
+            "completed_at": comp.completed_at
+        })
+    return logs
