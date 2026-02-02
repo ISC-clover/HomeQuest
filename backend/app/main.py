@@ -11,6 +11,8 @@ from datetime import timedelta
 # 環境変数からAPIキーを取得
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
+front_url = os.getenv("FRONT_URL", "http://localhost:8501")
+origins = [front_url]
 
 # auto_error=Falseにすることで、ヘッダーがなくても即エラーにせず、関数内で判定できるようにする
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -51,7 +53,7 @@ app = FastAPI(dependencies=[Depends(get_api_key)])
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
