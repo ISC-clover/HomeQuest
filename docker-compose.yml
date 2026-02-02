@@ -11,6 +11,7 @@ services:
       PASSWORD_PEPPER: ${PASSWORD_PEPPER}
       SECRET_KEY: ${SECRET_KEY}
       APP_API_KEY: ${APP_API_KEY}
+      FRONT_URL: ${FRONT_URL}
       TZ: Asia/Tokyo
 
   db:
