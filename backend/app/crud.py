@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 import models, schemas, auth, secrets, os, models
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from sqlalchemy import desc
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
 
@@ -186,68 +187,72 @@ def get_user_purchases(db: Session, user_id: int):
         models.PurchaseHistory.user_id == user_id
     ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
     
-def complete_quest(db: Session, user_id: int, quest_id: int):
-    # クエスト情報を取得
-    quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
+def submit_quest_completion(db: Session, user_id: int, quest_id: int, image_path: str):
+    """ユーザーがクエスト完了を報告する（ポイントはまだ入らない）"""
+    quest = get_quest(db, quest_id)
     if not quest:
-        return None, "クエストが見つかりません"
-
-    # ↓↓↓ 【追加】時間のチェック処理
-    now = datetime.now(ZoneInfo("Asia/Tokyo")) # 日本時間で現在時刻を取得
-
-    # 1. 開始時間チェック（設定されている場合のみ）
-    if quest.start_time:
-        # DBの時間がnaive(タイムゾーンなし)の場合に備えて対応が必要ですが
-        # ここでは簡易的に比較します（本来はDB保存時にタイムゾーンを統一するのがベスト）
-        if quest.start_time.tzinfo is None:
-            # DBの日時をJSTだとみなして比較用に変換
-            start_time_aware = quest.start_time.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
-        else:
-            start_time_aware = quest.start_time
-            
-        if now < start_time_aware:
-            return None, "クエストはまだ開始していません"
-
-    # 2. 終了時間チェック（設定されている場合のみ）
-    if quest.end_time:
-        if quest.end_time.tzinfo is None:
-            end_time_aware = quest.end_time.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
-        else:
-            end_time_aware = quest.end_time
-
-        if now > end_time_aware:
-            return None, "クエストの期限が切れています"
-    # ↑↑↑ ここまで
-
-    # ユーザーがグループに所属しているか確認
-    user_group = db.query(models.UserGroup).filter(
-        models.UserGroup.user_id == user_id,
-        models.UserGroup.group_id == quest.group_id
+        return None, "Quest not found"
+    
+    # 既に「承認待ち」または「完了」のものがないかチェック（重複提出防止）
+    # (簡易的に、同じクエストを何度も提出できないようにする場合)
+    # 運用に合わせて調整してください。今回は「直近のログが承認待ちならエラー」にします
+    existing_log = db.query(models.QuestCompletionLog).filter(
+        models.QuestCompletionLog.user_id == user_id,
+        models.QuestCompletionLog.quest_id == quest_id,
+        models.QuestCompletionLog.status == "pending"
     ).first()
     
-    if not user_group:
-        return None, "グループメンバーではありません"
-        
-    # ポイント加算
-    user_group.points += quest.reward_points
-    
-    # 完了履歴を作成
-    new_completion = models.QuestCompletion(
-        quest_id=quest_id,
+    if existing_log:
+        return None, "現在、承認待ちの提出があります。"
+
+    db_log = models.QuestCompletionLog(
         user_id=user_id,
+        quest_id=quest_id,
         group_id=quest.group_id,
-        completed_at=now # 完了時刻も現在時刻で記録
+        status="pending",
+        proof_image_path=image_path
     )
-    db.add(new_completion)
-    
-    # クエストの最終完了日時を更新
-    quest.last_completed_at = now
-    
+    db.add(db_log)
     db.commit()
-    db.refresh(user_group)
+    db.refresh(db_log)
     
-    # 成功時は UserGroupオブジェクト と None(エラーなし) を返す
-    return user_group, None
+    return db_log, "クエストを提出しました！ホストの承認をお待ちください。"
+
+def get_pending_submissions(db: Session, group_id: int):
+    return db.query(models.QuestCompletionLog).filter(
+        models.QuestCompletionLog.group_id == group_id,
+        models.QuestCompletionLog.status == "pending"
+    ).all()
+
+def review_quest_submission(db: Session, log_id: int, is_approved: bool):
+    """ホストが提出を承認または却下する"""
+    log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
+    if not log:
+        return None, "提出データが見つかりません"
+    
+    if log.status != "pending":
+        return None, "このクエストは既に処理されています"
+
+    if is_approved:
+        log.status = "approved"
+        
+        quest = get_quest(db, log.quest_id)
+        user_group = db.query(models.UserGroup).filter(
+            models.UserGroup.user_id == log.user_id,
+            models.UserGroup.group_id == log.group_id
+        ).first()
+        
+        if user_group and quest:
+            user_group.points += quest.points
+            
+        message = f"承認しました！ユーザーに {quest.points} ポイント付与されました。"
+    else:
+        log.status = "rejected"
+        message = "クエストを却下しました。"
+
+    db.commit()
+    db.refresh(log)
+    return log, message
 
 def get_group_purchase_history(db: Session, group_id: int):
     results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(

@@ -48,11 +48,20 @@ class Quest(QuestCreate):
 
 class QuestCompletionLog(BaseModel):
     id: int
-    user_name: str
-    quest_name: str
-    reward_points: int
+    user_id: int
+    quest_id: int
+    group_id: int
     completed_at: datetime
-    model_config = {"from_attributes": True}
+    quest_title: str | None = None
+    
+    status: str
+    proof_image_path: str | None = None
+
+    class Config:
+        from_attributes = True
+
+class QuestReview(BaseModel):
+    approved: bool
 
 # --- Group ---
 class GroupCreate(BaseModel):

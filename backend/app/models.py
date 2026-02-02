@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime, Enum
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -11,6 +11,7 @@ class User(Base):
     password = Column(String)
     
     groups = relationship("UserGroup", back_populates="user")
+    quest_logs = relationship("QuestCompletionLog", back_populates="user")
 
 class Group(Base):
     __tablename__ = "groups"
@@ -19,9 +20,11 @@ class Group(Base):
     group_name = Column(String, index=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"))
     invite_code = Column(String, unique=True, index=True, nullable=True)
+    
     members = relationship("UserGroup", back_populates="group")
     shops = relationship("Shop", back_populates="group")
     quests = relationship("Quest", back_populates="group")
+    quest_logs = relationship("QuestCompletionLog", back_populates="group")
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
@@ -42,11 +45,20 @@ class Shop(Base):
     group_id = Column(Integer, ForeignKey("groups.id"))
     item_name = Column(String, index=True)
     description = Column(Text, nullable=True)
-    cost_points = Column(Integer, default=100)
-    
+    cost_points = Column(Integer)
     limit_per_user = Column(Integer, nullable=True)
     
     group = relationship("Group", back_populates="shops")
+
+class PurchaseHistory(Base):
+    __tablename__ = "purchase_history"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    group_id = Column(Integer, ForeignKey("groups.id"))
+    item_name = Column(String)
+    cost = Column(Integer)
+    purchased_at = Column(DateTime, default=datetime.now)
 
 class Quest(Base):
     __tablename__ = "quests"
@@ -58,36 +70,25 @@ class Quest(Base):
     start_time = Column(DateTime, nullable=True)
     end_time = Column(DateTime, nullable=True)
     reward_points = Column(Integer, default=10)
-    last_completed_at = Column(DateTime, nullable=True)
     recurrence = Column(String, default="one_off") 
     
     group = relationship("Group", back_populates="quests")
-    
-class QuestCompletion(Base):
-    __tablename__ = "quest_completions"
-    
+    logs = relationship("QuestCompletionLog", back_populates="quest")
+
+# ★ここが重要：新しい履歴用テーブル（承認機能付き）
+class QuestCompletionLog(Base):
+    __tablename__ = "quest_completion_logs"
+
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
     quest_id = Column(Integer, ForeignKey("quests.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    group_id = Column(Integer, ForeignKey("groups.id"))
     
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    proof_image_path = Column(String, nullable=True)
     
-    completed_at = Column(DateTime, default=datetime.now)
-    
-    quest = relationship("Quest")
-    user = relationship("User")
-    
-class PurchaseHistory(Base):
-    __tablename__ = "purchase_history"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    
-    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)
-    
-    shop_item_id = Column(Integer, nullable=True)
-    item_name = Column(String) 
-    cost = Column(Integer)
-    purchased_at = Column(DateTime, default=datetime.now)
-    
-    user = relationship("User")
+    completed_at = Column(DateTime, default=datetime.now) # 修正: datetime.datetime.now ではなく datetime.now
+
+    user = relationship("User", back_populates="quest_logs")
+    quest = relationship("Quest", back_populates="logs")
+    group = relationship("Group", back_populates="quest_logs")

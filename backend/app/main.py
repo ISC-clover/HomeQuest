@@ -1,10 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Security, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Security, Request, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine, get_db
 import models, schemas, crud, auth, os
 from sqlalchemy.orm import Session
 from datetime import timedelta
+import shutil
+from pathlib import Path
+from fastapi.staticfiles import StaticFiles
 
 # --- 1. 設定とセキュリティ関数の定義 (appより先に書く！) ---
 
@@ -58,6 +61,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+UPLOAD_DIR = Path("static/uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # --- 3. ルーティング定義 (中身はそのまま) ---
 
@@ -227,11 +235,65 @@ def create_quest(
     return crud.create_quest(db=db, quest=quest, group_id=group_id)
 
 @app.post("/quests/{quest_id}/complete")
-def complete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    result, message = crud.complete_quest(db, current_user.id, quest_id)
+async def complete_quest(
+    quest_id: int, 
+    file: UploadFile = File(...),  # 画像ファイルを受け取る
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # 1. ファイル名を一意にする (ユーザーID_クエストID_元の名前)
+    file_name = f"{current_user.id}_{quest_id}_{file.filename}"
+    file_path = UPLOAD_DIR / file_name
+    
+    # 2. サーバーに保存
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    # 3. DBにパスを保存 (パスは文字列として渡す)
+    # ※保存されるパス例: static/uploads/1_5_photo.jpg
+    db_path = str(file_path)
+    
+    result, message = crud.submit_quest_completion(db, current_user.id, quest_id, db_path)
+    
+    if not result:
+        # 失敗したら保存した画像も消しておくと親切（今回は省略）
+        raise HTTPException(status_code=400, detail=message)
+        
+    return {"message": message}
+
+@app.get("/groups/{group_id}/submissions", response_model=list[schemas.QuestCompletionLog])
+def get_pending_submissions(
+    group_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    if not crud.is_group_host(db, current_user.id, group_id):
+        raise HTTPException(status_code=403, detail="ホストのみ閲覧可能です")
+    
+    return crud.get_pending_submissions(db, group_id)
+
+@app.post("/submissions/{log_id}/review")
+def review_submission(
+    log_id: int,
+    review: schemas.QuestReview,  # { "approved": true } を受け取る
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # 1. ログを取得して、そのグループのホストか確認する必要がある
+    # (crud側でlog取得してからチェックする方が丁寧ですが、ここでは簡易的に実装)
+    log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="提出が見つかりません")
+        
+    if not crud.is_group_host(db, current_user.id, log.group_id):
+        raise HTTPException(status_code=403, detail="権限がありません")
+
+    result, message = crud.review_quest_submission(db, log_id, review.approved)
+    
     if not result:
         raise HTTPException(status_code=400, detail=message)
-    return {"message": "クエスト完了！", "current_points": result.points}
+        
+    return {"message": message, "status": result.status}
 
 @app.delete("/quests/{quest_id}")
 def delete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):

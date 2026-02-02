@@ -13,6 +13,8 @@ services:
       APP_API_KEY: ${APP_API_KEY}
       FRONT_URL: ${FRONT_URL}
       TZ: Asia/Tokyo
+    volumes:
+      - ./backend/static:/app/static
 
   db:
     image: postgres:15
