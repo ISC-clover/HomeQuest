@@ -350,3 +350,11 @@ def read_group_purchase_history(group_id: int, db: Session = Depends(get_db), cu
 @app.get("/groups/{group_id}/history/quests", response_model=list[schemas.QuestCompletionLog])
 def read_group_quest_history(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.get_group_quest_history(db, group_id)
+
+@app.get("/users/{user_id}/groups", response_model=list[schemas.Group])
+def read_user_joined_groups(
+    user_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    return crud.get_user_joined_groups(db, user_id)

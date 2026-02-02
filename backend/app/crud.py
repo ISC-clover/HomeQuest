@@ -417,3 +417,12 @@ def remove_member(db: Session, group_id: int, user_id: int):
         db.commit()
         return True
     return False
+
+def get_user_joined_groups(db: Session, user_id: int):
+    """ユーザーが参加しているグループの一覧を取得する"""
+    return (
+        db.query(models.Group)
+        .join(models.UserGroup, models.Group.id == models.UserGroup.group_id)
+        .filter(models.UserGroup.user_id == user_id)
+        .all()
+    )
