@@ -18,9 +18,8 @@ class Group(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_name = Column(String, index=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"))
-    
+    invite_code = Column(String, unique=True, index=True, nullable=True)
     members = relationship("UserGroup", back_populates="group")
-    
     shops = relationship("Shop", back_populates="group")
     quests = relationship("Quest", back_populates="group")
 

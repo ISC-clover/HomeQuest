@@ -1,8 +1,6 @@
 from sqlalchemy.orm import Session
-import models, schemas, auth
-import os
-import models, schemas
-from datetime import datetime, date
+import models, schemas, auth, secrets, os, models
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
@@ -189,41 +187,67 @@ def get_user_purchases(db: Session, user_id: int):
     ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
     
 def complete_quest(db: Session, user_id: int, quest_id: int):
+    # クエスト情報を取得
     quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
     if not quest:
-        return None
+        return None, "クエストが見つかりません"
 
+    # ↓↓↓ 【追加】時間のチェック処理
+    now = datetime.now(ZoneInfo("Asia/Tokyo")) # 日本時間で現在時刻を取得
+
+    # 1. 開始時間チェック（設定されている場合のみ）
+    if quest.start_time:
+        # DBの時間がnaive(タイムゾーンなし)の場合に備えて対応が必要ですが
+        # ここでは簡易的に比較します（本来はDB保存時にタイムゾーンを統一するのがベスト）
+        if quest.start_time.tzinfo is None:
+            # DBの日時をJSTだとみなして比較用に変換
+            start_time_aware = quest.start_time.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+        else:
+            start_time_aware = quest.start_time
+            
+        if now < start_time_aware:
+            return None, "クエストはまだ開始していません"
+
+    # 2. 終了時間チェック（設定されている場合のみ）
+    if quest.end_time:
+        if quest.end_time.tzinfo is None:
+            end_time_aware = quest.end_time.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+        else:
+            end_time_aware = quest.end_time
+
+        if now > end_time_aware:
+            return None, "クエストの期限が切れています"
+    # ↑↑↑ ここまで
+
+    # ユーザーがグループに所属しているか確認
     user_group = db.query(models.UserGroup).filter(
         models.UserGroup.user_id == user_id,
         models.UserGroup.group_id == quest.group_id
     ).first()
     
     if not user_group:
-        return None
-
-    jst = ZoneInfo("Asia/Tokyo")
-    now_jst = datetime.now(jst)
-
-    if quest.last_completed_at:
-        last_done_jst = quest.last_completed_at.astimezone(jst)
+        return None, "グループメンバーではありません"
         
-        if last_done_jst.date() == now_jst.date():
-            return None
-
+    # ポイント加算
     user_group.points += quest.reward_points
     
+    # 完了履歴を作成
     new_completion = models.QuestCompletion(
         quest_id=quest_id,
         user_id=user_id,
-        group_id=quest.group_id
+        group_id=quest.group_id,
+        completed_at=now # 完了時刻も現在時刻で記録
     )
     db.add(new_completion)
     
-    quest.last_completed_at = now_jst
+    # クエストの最終完了日時を更新
+    quest.last_completed_at = now
     
     db.commit()
     db.refresh(user_group)
-    return user_group
+    
+    # 成功時は UserGroupオブジェクト と None(エラーなし) を返す
+    return user_group, None
 
 def get_group_purchase_history(db: Session, group_id: int):
     results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(
@@ -256,3 +280,135 @@ def get_group_quest_history(db: Session, group_id: int):
             "completed_at": comp.completed_at
         })
     return logs
+
+def create_invite_code(db: Session, group_id: int):
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        return None
+    
+    # すでにコードがあるならそれを返す
+    if group.invite_code:
+        return group.invite_code
+
+    # ランダムなコードを生成（重複したら作り直し）
+    while True:
+        # 4バイトのHEX文字列（例: A1B2C3D4）を生成して大文字に
+        code = secrets.token_hex(4).upper()
+        # 他のグループとかぶってないかチェック
+        if not db.query(models.Group).filter(models.Group.invite_code == code).first():
+            group.invite_code = code
+            break
+    
+    db.commit()
+    db.refresh(group)
+    return group.invite_code
+
+def join_group_by_code(db: Session, user_id: int, invite_code: str):
+    # コードからグループを探す
+    group = db.query(models.Group).filter(models.Group.invite_code == invite_code).first()
+    
+    if not group:
+        return None, "無効な招待コードです"
+    
+    # すでにメンバーかどうかチェック
+    existing_member = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == group.id
+    ).first()
+    
+    if existing_member:
+        return group, "すでにこのグループに参加しています"
+    
+    # メンバーに追加
+    new_member = models.UserGroup(
+        user_id=user_id,
+        group_id=group.id,
+        points=0,
+        is_host=False
+    )
+    db.add(new_member)
+    db.commit()
+    
+    return group, "成功"
+
+def regenerate_invite_code(db: Session, group_id: int):
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        return None
+    
+    # 既存のコードがあっても無視して、新しいコードを探す
+    while True:
+        new_code = secrets.token_hex(4).upper()
+        # 重複チェック（自分自身の今のコードと同じになっても一応作り直す）
+        if not db.query(models.Group).filter(models.Group.invite_code == new_code).first():
+            group.invite_code = new_code
+            break
+            
+    db.commit()
+    db.refresh(group)
+    return group.invite_code
+
+def is_group_host(db: Session, user_id: int, group_id: int) -> bool:
+    # ユーザーとグループの紐づけデータを取得
+    user_group = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == group_id
+    ).first()
+    
+    # データが存在し、かつ is_host が True ならOK
+    return user_group.is_host if user_group else False
+
+# --- Delete Helpers ---
+
+def get_quest(db: Session, quest_id: int):
+    return db.query(models.Quest).filter(models.Quest.id == quest_id).first()
+
+def delete_quest(db: Session, quest_id: int):
+    quest = get_quest(db, quest_id)
+    if quest:
+        db.delete(quest)
+        db.commit()
+        return True
+    return False
+
+def get_shop_item(db: Session, item_id: int):
+    return db.query(models.Shop).filter(models.Shop.id == item_id).first()
+
+def delete_shop_item(db: Session, item_id: int):
+    item = get_shop_item(db, item_id)
+    if item:
+        db.delete(item)
+        db.commit()
+        return True
+    return False
+
+# --- Member Management ---
+
+def is_group_owner(db: Session, user_id: int, group_id: int) -> bool:
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    return group and group.owner_user_id == user_id
+
+def update_member_host_status(db: Session, group_id: int, user_id: int, is_host: bool):
+    member = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    
+    if member:
+        member.is_host = is_host
+        db.commit()
+        db.refresh(member)
+        return member
+    return None
+
+def remove_member(db: Session, group_id: int, user_id: int):
+    member = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    
+    if member:
+        db.delete(member)
+        db.commit()
+        return True
+    return False
