@@ -20,7 +20,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/users": {
@@ -42,7 +47,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       },
       "post": {
         "summary": "Create User",
@@ -78,7 +88,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/users/me/purchases": {
@@ -102,6 +117,9 @@
           }
         },
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -127,7 +145,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       },
       "post": {
         "summary": "Create Group",
@@ -166,6 +189,9 @@
         },
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ]
@@ -176,6 +202,9 @@
         "summary": "Read Group Detail",
         "operationId": "read_group_detail_groups__group_id__get",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -220,6 +249,9 @@
         "summary": "Generate Invite Code",
         "operationId": "generate_invite_code_groups__group_id__invite_code_post",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -297,6 +329,9 @@
         },
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ]
@@ -307,6 +342,9 @@
         "summary": "Reset Invite Code",
         "operationId": "reset_invite_code_groups__group_id__reset_invite_code_post",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -351,6 +389,9 @@
         "summary": "Update Member Role",
         "operationId": "update_member_role_groups__group_id__members__user_id__role_put",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -415,6 +456,9 @@
         "operationId": "remove_member_from_group_groups__group_id__members__user_id__delete",
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ],
@@ -467,6 +511,9 @@
         "summary": "Create Shop Item",
         "operationId": "create_shop_item_groups__group_id__shops_post",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -522,6 +569,9 @@
         "operationId": "purchase_item_shops__item_id__purchase_post",
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ],
@@ -566,6 +616,9 @@
         "operationId": "delete_shop_item_shops__item_id__delete",
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ],
@@ -609,6 +662,9 @@
         "summary": "Create Quest",
         "operationId": "create_quest_groups__group_id__quests_post",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -664,6 +720,9 @@
         "operationId": "complete_quest_quests__quest_id__complete_post",
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ],
@@ -707,6 +766,9 @@
         "summary": "Delete Quest",
         "operationId": "delete_quest_quests__quest_id__delete",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -781,7 +843,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/users/me": {
@@ -802,6 +869,9 @@
         },
         "security": [
           {
+            "APIKeyHeader": []
+          },
+          {
             "OAuth2PasswordBearer": []
           }
         ]
@@ -812,6 +882,9 @@
         "summary": "Read Group Purchase History",
         "operationId": "read_group_purchase_history_groups__group_id__history_purchases_get",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -860,6 +933,9 @@
         "summary": "Read Group Quest History",
         "operationId": "read_group_quest_history_groups__group_id__history_quests_get",
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "OAuth2PasswordBearer": []
           }
@@ -1556,6 +1632,11 @@
       }
     },
     "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-App-Key"
+      },
       "OAuth2PasswordBearer": {
         "type": "oauth2",
         "flows": {
