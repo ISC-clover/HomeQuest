@@ -12,16 +12,6 @@ services:
       SECRET_KEY: "your_hyper_strong_key"
       TZ: Asia/Tokyo
 
-  frontend:
-    build: ./frontend
-    container_name: homequest-frontend
-    ports:
-      - "8501:8501"
-    volumes:
-      - ./frontend:/app
-    depends_on:
-      - backend
-
   db:
     image: postgres:15
     restart: always

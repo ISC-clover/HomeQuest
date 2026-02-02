@@ -67,6 +67,9 @@ class Group(BaseModel):
     
     model_config = {"from_attributes": True}
 
+class JoinGroupRequest(BaseModel):
+    invite_code: str
+
 # --- Others ---
 class HostUser(BaseModel):
     id: int

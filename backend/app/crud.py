@@ -1,7 +1,5 @@
 from sqlalchemy.orm import Session
-import models, schemas, auth
-import os
-import models, schemas
+import models, schemas, auth, secrets, os, models
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
@@ -256,3 +254,54 @@ def get_group_quest_history(db: Session, group_id: int):
             "completed_at": comp.completed_at
         })
     return logs
+
+def create_invite_code(db: Session, group_id: int):
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        return None
+    
+    # すでにコードがあるならそれを返す
+    if group.invite_code:
+        return group.invite_code
+
+    # ランダムなコードを生成（重複したら作り直し）
+    while True:
+        # 4バイトのHEX文字列（例: A1B2C3D4）を生成して大文字に
+        code = secrets.token_hex(4).upper()
+        # 他のグループとかぶってないかチェック
+        if not db.query(models.Group).filter(models.Group.invite_code == code).first():
+            group.invite_code = code
+            break
+    
+    db.commit()
+    db.refresh(group)
+    return group.invite_code
+
+# ↓↓↓ 【追加】招待コードを使ってグループに参加する関数
+def join_group_by_code(db: Session, user_id: int, invite_code: str):
+    # コードからグループを探す
+    group = db.query(models.Group).filter(models.Group.invite_code == invite_code).first()
+    
+    if not group:
+        return None, "無効な招待コードです"
+    
+    # すでにメンバーかどうかチェック
+    existing_member = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == group.id
+    ).first()
+    
+    if existing_member:
+        return group, "すでにこのグループに参加しています"
+    
+    # メンバーに追加
+    new_member = models.UserGroup(
+        user_id=user_id,
+        group_id=group.id,
+        points=0,
+        is_host=False
+    )
+    db.add(new_member)
+    db.commit()
+    
+    return group, "成功"

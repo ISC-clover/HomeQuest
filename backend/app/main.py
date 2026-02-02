@@ -51,10 +51,27 @@ def read_group_detail(group_id: int, db: Session = Depends(get_db), current_user
     return group
 
 # グループへのユーザー参加
-@app.post("/groups/{group_id}/users/{user_id}")
-def add_user_to_group(group_id: int, user_id: int, db: Session = Depends(get_db)):
-    # 実際はここで「ユーザーが存在するか」「グループが存在するか」のチェックを入れるとより安全です
-    return crud.add_user_to_group(db, user_id, group_id)
+
+@app.post("/groups/{group_id}/invite_code")
+def generate_invite_code(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # 本来は「current_userがこのグループのホストか」チェックすべきですが、まずは省略
+    code = crud.create_invite_code(db, group_id)
+    if not code:
+        raise HTTPException(status_code=404, detail="Group not found")
+    return {"invite_code": code}
+
+# 2. 招待コードを入力して参加するAPI
+@app.post("/groups/join")
+def join_group(request: schemas.JoinGroupRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    group, message = crud.join_group_by_code(db, current_user.id, request.invite_code)
+    
+    if not group:
+        raise HTTPException(status_code=400, detail=message)
+        
+    return {
+        "message": f"グループ「{group.group_name}」に参加しました！",
+        "group_id": group.id
+    }
 
 # --- Shops (Rewards) ---
 @app.post("/groups/{group_id}/shops", response_model=schemas.Shop)
