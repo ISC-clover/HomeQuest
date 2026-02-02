@@ -29,5 +29,19 @@ services:
       timeout: 5s
       retries: 5
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./frontend:/app  # ローカルのファイルをコンテナと同期（保存即反映）
+    depends_on:
+      - backend
+    environment:
+      BACKEND_API_URL: ${API_URL}
+      APP_API_KEY: ${APP_API_KEY}
+      TZ: Asia/Tokyo
+    command: streamlit run main.py --server.address=0.0.0.0
+
 volumes:
   db_data:
