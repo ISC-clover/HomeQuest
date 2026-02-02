@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine, get_db
 import models, schemas, crud, auth
 from sqlalchemy.orm import Session
@@ -9,6 +10,15 @@ app = FastAPI()
 
 # データベースのテーブル作成（更新があった場合は一度DBをリセットするか、alembic等でマイグレーションが必要ですが、開発中はDBファイルを削除して再起動が手っ取り早いです）
 Base.metadata.create_all(bind=engine)
+
+app.add_middleware(
+    CORSMiddleware,
+    #allow_origins=["https://clover-homequest.syk9.link"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def root():
@@ -190,20 +200,16 @@ def create_quest(
     return crud.create_quest(db=db, quest=quest, group_id=group_id)
 
 @app.post("/quests/{quest_id}/complete")
-def complete_quest(
-    quest_id: int, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(auth.get_current_user)
-):
-    result = crud.complete_quest(db=db, user_id=current_user.id, quest_id=quest_id)
+def complete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # crudの変更に合わせて受け取り方を変更
+    result, message = crud.complete_quest(db, current_user.id, quest_id)
     
+    # 失敗した場合（resultがNone）
     if not result:
-        raise HTTPException(
-            status_code=400, 
-            detail="Quest not found, not in group, or already completed today."
-        )
-    
-    return {"message": "Quest completed!", "current_points": result.points}
+        # messageには「まだ開始していません」などが入っている
+        raise HTTPException(status_code=400, detail=message)
+        
+    return {"message": "クエスト完了！", "current_points": result.points}
 
 @app.delete("/quests/{quest_id}")
 def delete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
