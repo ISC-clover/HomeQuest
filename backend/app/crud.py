@@ -277,7 +277,6 @@ def create_invite_code(db: Session, group_id: int):
     db.refresh(group)
     return group.invite_code
 
-# ↓↓↓ 【追加】招待コードを使ってグループに参加する関数
 def join_group_by_code(db: Session, user_id: int, invite_code: str):
     # コードからグループを探す
     group = db.query(models.Group).filter(models.Group.invite_code == invite_code).first()
@@ -305,3 +304,85 @@ def join_group_by_code(db: Session, user_id: int, invite_code: str):
     db.commit()
     
     return group, "成功"
+
+def regenerate_invite_code(db: Session, group_id: int):
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not group:
+        return None
+    
+    # 既存のコードがあっても無視して、新しいコードを探す
+    while True:
+        new_code = secrets.token_hex(4).upper()
+        # 重複チェック（自分自身の今のコードと同じになっても一応作り直す）
+        if not db.query(models.Group).filter(models.Group.invite_code == new_code).first():
+            group.invite_code = new_code
+            break
+            
+    db.commit()
+    db.refresh(group)
+    return group.invite_code
+
+def is_group_host(db: Session, user_id: int, group_id: int) -> bool:
+    # ユーザーとグループの紐づけデータを取得
+    user_group = db.query(models.UserGroup).filter(
+        models.UserGroup.user_id == user_id,
+        models.UserGroup.group_id == group_id
+    ).first()
+    
+    # データが存在し、かつ is_host が True ならOK
+    return user_group.is_host if user_group else False
+
+# --- Delete Helpers ---
+
+def get_quest(db: Session, quest_id: int):
+    return db.query(models.Quest).filter(models.Quest.id == quest_id).first()
+
+def delete_quest(db: Session, quest_id: int):
+    quest = get_quest(db, quest_id)
+    if quest:
+        db.delete(quest)
+        db.commit()
+        return True
+    return False
+
+def get_shop_item(db: Session, item_id: int):
+    return db.query(models.Shop).filter(models.Shop.id == item_id).first()
+
+def delete_shop_item(db: Session, item_id: int):
+    item = get_shop_item(db, item_id)
+    if item:
+        db.delete(item)
+        db.commit()
+        return True
+    return False
+
+# --- Member Management ---
+
+def is_group_owner(db: Session, user_id: int, group_id: int) -> bool:
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    return group and group.owner_user_id == user_id
+
+def update_member_host_status(db: Session, group_id: int, user_id: int, is_host: bool):
+    member = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    
+    if member:
+        member.is_host = is_host
+        db.commit()
+        db.refresh(member)
+        return member
+    return None
+
+def remove_member(db: Session, group_id: int, user_id: int):
+    member = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    
+    if member:
+        db.delete(member)
+        db.commit()
+        return True
+    return False

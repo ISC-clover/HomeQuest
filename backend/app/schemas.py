@@ -100,7 +100,10 @@ class UserWithGroups(BaseModel):
     groups: list[int]
     
     model_config = {"from_attributes": True}
-    
+
+class MemberRoleUpdate(BaseModel):
+    is_host: bool
+
 # --- Auth / Token ---
 class Token(BaseModel):
     access_token: str
