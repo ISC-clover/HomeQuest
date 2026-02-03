@@ -13,6 +13,8 @@ services:
       APP_API_KEY: ${APP_API_KEY}
       FRONT_URL: ${FRONT_URL}
       TZ: Asia/Tokyo
+    volumes:
+      - ./backend/static:/app/static
 
   db:
     image: postgres:15
@@ -41,6 +43,7 @@ services:
     environment:
       BACKEND_API_URL: ${API_URL}
       APP_API_KEY: ${APP_API_KEY}
+      IMAGE_BASE_URL: ${IMAGE_BASE_URL}
       TZ: Asia/Tokyo
     command: streamlit run main.py --server.address=0.0.0.0
 

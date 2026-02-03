@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-# --- User ---
 class UserCreate(BaseModel):
     user_name: str
     password: str
@@ -12,7 +11,6 @@ class User(BaseModel):
     
     model_config = {"from_attributes": True}
 
-# --- Shop (Reward) ---
 class ShopCreate(BaseModel):
     item_name: str
     description: str | None = None
@@ -22,6 +20,7 @@ class ShopCreate(BaseModel):
 class Shop(ShopCreate):
     id: int
     group_id: int
+    
     model_config = {"from_attributes": True}    
 
 class PurchaseLog(BaseModel):
@@ -30,16 +29,16 @@ class PurchaseLog(BaseModel):
     item_name: str
     cost: int
     purchased_at: datetime
+    
     model_config = {"from_attributes": True}
 
-# --- Quest ---
 class QuestCreate(BaseModel):
     quest_name: str
     description: str | None = None
     start_time: datetime | None = None
     end_time: datetime | None = None
     reward_points: int = 10
-    recurrence: str = "one_off"  # "daily" or "one_off"
+    recurrence: str = "one_off"
 
 class Quest(QuestCreate):
     id: int
@@ -48,13 +47,19 @@ class Quest(QuestCreate):
 
 class QuestCompletionLog(BaseModel):
     id: int
-    user_name: str
-    quest_name: str
-    reward_points: int
+    user_id: int
+    quest_id: int
+    group_id: int
     completed_at: datetime
+    quest_title: str | None = None
+    status: str
+    proof_image_path: str | None = None
+    
     model_config = {"from_attributes": True}
 
-# --- Group ---
+class QuestReview(BaseModel):
+    approved: bool
+
 class GroupCreate(BaseModel):
     group_name: str
 
@@ -70,10 +75,10 @@ class Group(BaseModel):
 class JoinGroupRequest(BaseModel):
     invite_code: str
 
-# --- Others ---
 class HostUser(BaseModel):
     id: int
     user_name: str
+    
     model_config = {"from_attributes": True}
 
 class UserInGroup(BaseModel):
@@ -81,6 +86,7 @@ class UserInGroup(BaseModel):
     user_name: str
     points: int
     is_host: bool
+    
     model_config = {"from_attributes": True}
 
 class GroupDetail(BaseModel):
@@ -104,7 +110,6 @@ class UserWithGroups(BaseModel):
 class MemberRoleUpdate(BaseModel):
     is_host: bool
 
-# --- Auth / Token ---
 class Token(BaseModel):
     access_token: str
     token_type: str
