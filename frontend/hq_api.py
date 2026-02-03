@@ -1,5 +1,4 @@
 import requests
-import os
 from typing import Optional, Dict, Any
 
 class HomeQuestClient:
