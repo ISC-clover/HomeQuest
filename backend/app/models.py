@@ -75,7 +75,6 @@ class Quest(Base):
     group = relationship("Group", back_populates="quests")
     logs = relationship("QuestCompletionLog", back_populates="quest")
 
-# ★ここが重要：新しい履歴用テーブル（承認機能付き）
 class QuestCompletionLog(Base):
     __tablename__ = "quest_completion_logs"
 
@@ -83,12 +82,10 @@ class QuestCompletionLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     quest_id = Column(Integer, ForeignKey("quests.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
-    
-    status = Column(String, default="pending")  # pending, approved, rejected
+    status = Column(String, default="pending")
     proof_image_path = Column(String, nullable=True)
+    completed_at = Column(DateTime, default=datetime.now)
     
-    completed_at = Column(DateTime, default=datetime.now) # 修正: datetime.datetime.now ではなく datetime.now
-
     user = relationship("User", back_populates="quest_logs")
     quest = relationship("Quest", back_populates="logs")
     group = relationship("Group", back_populates="quest_logs")

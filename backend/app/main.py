@@ -9,51 +9,29 @@ import shutil
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
 
-# --- 1. 設定とセキュリティ関数の定義 (appより先に書く！) ---
-
-# 環境変数からAPIキーを取得
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
 front_url = os.getenv("FRONT_URL", "http://localhost:8501")
 origins = [front_url]
-
-# auto_error=Falseにすることで、ヘッダーがなくても即エラーにせず、関数内で判定できるようにする
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 async def get_api_key(
     request: Request,
     api_key_header: str = Security(api_key_header)
 ):
-    """
-    全てのアクセスに対してAPIキーをチェックする関数。
-    ただし、Swagger UIやルートパスは許可する。
-    """
-    # ホワイトリスト: APIキーなしでアクセスしていいパス
-    # docs: ドキュメントを見るため
-    # openapi.json: ドキュメントのデータ
-    # /: ヘルスチェック用
     whitelist = ["/docs", "/redoc", "/openapi.json", "/"]
-    
     if request.url.path in whitelist:
-        return None  # チェック免除
-
-    # キーの検証
+        return None
     if api_key_header == API_KEY:
         return api_key_header
     else:
-        # キーが違う、または無い場合は 403 エラー
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials (API Key is missing or invalid)"
         )
 
-# データベースのテーブル作成
 Base.metadata.create_all(bind=engine)
-
-# --- 2. アプリの初期化 (ここで「全ての操作」にロックをかける) ---
 app = FastAPI(dependencies=[Depends(get_api_key)])
-
-# CORS設定
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -64,24 +42,24 @@ app.add_middleware(
 
 UPLOAD_DIR = Path("static/uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- 3. ルーティング定義 (中身はそのまま) ---
-
+#health check
 @app.get("/")
 def root():
     return {"message": "HomeQuest backend is running!"}
 
-# --- Users ---
+#create user
 @app.post("/users", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return crud.create_user(db, user)
 
+#get users
 @app.get("/users", response_model=list[schemas.UserWithGroups])
 def read_users(db: Session = Depends(get_db)):
     return crud.get_users(db)
 
+#get purchases log
 @app.get("/users/me/purchases", response_model=list[schemas.PurchaseLog])
 def read_own_purchases(
     db: Session = Depends(get_db),
@@ -89,7 +67,7 @@ def read_own_purchases(
 ):
     return crud.get_user_purchases(db=db, user_id=current_user.id)
 
-# --- Groups ---
+#create group
 @app.post("/groups", response_model=schemas.Group)
 def create_group(
     group: schemas.GroupCreate, 
@@ -98,10 +76,12 @@ def create_group(
 ):
     return crud.create_group(db=db, group=group, owner_id=current_user.id)
 
+#get groups
 @app.get("/groups", response_model=list[schemas.Group])
 def read_groups(db: Session = Depends(get_db)):
     return crud.get_groups(db)
 
+#get group detail
 @app.get("/groups/{group_id}", response_model=schemas.GroupDetail)
 def read_group_detail(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     group = crud.get_group_detail(db, group_id)
@@ -109,8 +89,7 @@ def read_group_detail(group_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail="Group not found")
     return group
 
-# グループへのユーザー参加
-
+#create invite code
 @app.post("/groups/{group_id}/invite_code")
 def generate_invite_code(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if not crud.is_group_host(db, current_user.id, group_id):
@@ -120,6 +99,7 @@ def generate_invite_code(group_id: int, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=404, detail="Group not found")
     return {"invite_code": code}
 
+#join group
 @app.post("/groups/join")
 def join_group(request: schemas.JoinGroupRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     group, message = crud.join_group_by_code(db, current_user.id, request.invite_code)
@@ -132,6 +112,7 @@ def join_group(request: schemas.JoinGroupRequest, db: Session = Depends(get_db),
         "group_id": group.id
     }
 
+#regen invite code
 @app.post("/groups/{group_id}/reset_invite_code")
 def reset_invite_code(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if not crud.is_group_host(db, current_user.id, group_id):
@@ -141,6 +122,7 @@ def reset_invite_code(group_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail="Group not found")
     return {"new_invite_code": code}
 
+#change member role
 @app.put("/groups/{group_id}/members/{user_id}/role")
 def update_member_role(
     group_id: int, 
@@ -151,10 +133,8 @@ def update_member_role(
 ):
     if not crud.is_group_owner(db, current_user.id, group_id):
         raise HTTPException(status_code=403, detail="オーナーのみ実行可能です")
-
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="オーナー自身の権限は変更できません")
-
     member = crud.update_member_host_status(db, group_id, user_id, role_update.is_host)
     if not member:
         raise HTTPException(status_code=404, detail="メンバーが見つかりません")
@@ -162,7 +142,7 @@ def update_member_role(
     status_text = "ホストに昇格しました" if role_update.is_host else "ホスト権限を剥奪しました"
     return {"message": f"ユーザーID {user_id} を{status_text}"}
 
-
+#kick member
 @app.delete("/groups/{group_id}/members/{user_id}")
 def remove_member_from_group(
     group_id: int, 
@@ -172,17 +152,15 @@ def remove_member_from_group(
 ):
     if not crud.is_group_owner(db, current_user.id, group_id):
         raise HTTPException(status_code=403, detail="オーナーのみ実行可能です")
-
     if current_user.id == user_id:
         raise HTTPException(status_code=400, detail="オーナー自身をグループから削除することはできません")
-
     success = crud.remove_member(db, group_id, user_id)
     if not success:
         raise HTTPException(status_code=404, detail="メンバーが見つかりません")
         
     return {"message": f"ユーザーID {user_id} をグループから削除しました"}
 
-# --- Shops (Rewards) ---
+#add item
 @app.post("/groups/{group_id}/shops", response_model=schemas.Shop)
 def create_shop_item(
     group_id: int, 
@@ -194,6 +172,7 @@ def create_shop_item(
         raise HTTPException(status_code=403, detail="権限がありません。商品追加はホストのみ可能です。")
     return crud.create_shop_item(db=db, shop_item=shop_item, group_id=group_id)
 
+#purchase item
 @app.post("/shops/{item_id}/purchase")
 def purchase_item(
     item_id: int, 
@@ -210,6 +189,7 @@ def purchase_item(
         "current_points": user_group.points
     }
 
+#delete item
 @app.delete("/shops/{item_id}")
 def delete_shop_item(item_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     item = crud.get_shop_item(db, item_id)
@@ -222,7 +202,7 @@ def delete_shop_item(item_id: int, db: Session = Depends(get_db), current_user: 
     crud.delete_shop_item(db, item_id)
     return {"message": "Item deleted successfully"}
 
-# --- Quests ---
+#create quest
 @app.post("/groups/{group_id}/quests", response_model=schemas.Quest)
 def create_quest(
     group_id: int, 
@@ -234,33 +214,26 @@ def create_quest(
         raise HTTPException(status_code=403, detail="権限がありません。クエスト作成はホストのみ可能です。")
     return crud.create_quest(db=db, quest=quest, group_id=group_id)
 
+#post quest complete request
 @app.post("/quests/{quest_id}/complete")
 async def complete_quest(
     quest_id: int, 
-    file: UploadFile = File(...),  # 画像ファイルを受け取る
+    file: UploadFile = File(...),
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # 1. ファイル名を一意にする (ユーザーID_クエストID_元の名前)
     file_name = f"{current_user.id}_{quest_id}_{file.filename}"
     file_path = UPLOAD_DIR / file_name
-    
-    # 2. サーバーに保存
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    # 3. DBにパスを保存 (パスは文字列として渡す)
-    # ※保存されるパス例: static/uploads/1_5_photo.jpg
     db_path = str(file_path)
-    
     result, message = crud.submit_quest_completion(db, current_user.id, quest_id, db_path)
-    
     if not result:
-        # 失敗したら保存した画像も消しておくと親切（今回は省略）
         raise HTTPException(status_code=400, detail=message)
-        
     return {"message": message}
 
+#get quest complete
 @app.get("/groups/{group_id}/submissions", response_model=list[schemas.QuestCompletionLog])
 def get_pending_submissions(
     group_id: int,
@@ -272,42 +245,38 @@ def get_pending_submissions(
     
     return crud.get_pending_submissions(db, group_id)
 
+#quest confirm
 @app.post("/submissions/{log_id}/review")
 def review_submission(
     log_id: int,
-    review: schemas.QuestReview,  # { "approved": true } を受け取る
+    review: schemas.QuestReview,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # 1. ログを取得して、そのグループのホストか確認する必要がある
-    # (crud側でlog取得してからチェックする方が丁寧ですが、ここでは簡易的に実装)
     log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="提出が見つかりません")
         
     if not crud.is_group_host(db, current_user.id, log.group_id):
         raise HTTPException(status_code=403, detail="権限がありません")
-
     result, message = crud.review_quest_submission(db, log_id, review.approved)
-    
     if not result:
         raise HTTPException(status_code=400, detail=message)
         
     return {"message": message, "status": result.status}
 
+#delete quest
 @app.delete("/quests/{quest_id}")
 def delete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     quest = crud.get_quest(db, quest_id)
     if not quest:
         raise HTTPException(status_code=404, detail="Quest not found")
-    
     if not crud.is_group_host(db, current_user.id, quest.group_id):
         raise HTTPException(status_code=403, detail="権限がありません。クエスト削除はホストのみ可能です。")
-    
     crud.delete_quest(db, quest_id)
     return {"message": "Quest deleted successfully"}
 
-# --- Login Endpoint ---
+#generate token
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -321,7 +290,6 @@ def login_for_access_token(
             detail="User ID must be an integer",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     user = auth.authenticate_user(db, user_id=user_id, password=form_data.password)
     if not user:
         raise HTTPException(
@@ -329,7 +297,6 @@ def login_for_access_token(
             detail="Incorrect user ID or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth.create_access_token(
         data={"sub": str(user.id)},
@@ -337,20 +304,22 @@ def login_for_access_token(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# --- Protected Route Example ---
+#get user info
 @app.get("/users/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
-# --- history ---
+#get purchase log
 @app.get("/groups/{group_id}/history/purchases", response_model=list[schemas.PurchaseLog])
 def read_group_purchase_history(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.get_group_purchase_history(db, group_id)
 
+#get quest log
 @app.get("/groups/{group_id}/history/quests", response_model=list[schemas.QuestCompletionLog])
 def read_group_quest_history(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.get_group_quest_history(db, group_id)
 
+#get user in group
 @app.get("/users/{user_id}/groups", response_model=list[schemas.Group])
 def read_user_joined_groups(
     user_id: int, 
