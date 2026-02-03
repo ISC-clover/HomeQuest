@@ -1,7 +1,7 @@
 import requests
 from typing import Optional, Dict, Any
 
-class HomeQuestClient:
+class HomeQuestAPI:
     def __init__(self, api_url: str, api_key: str, image_base_url: str = None):
         self.api_url = api_url.rstrip("/")
         self.image_base_url = (image_base_url or api_url).rstrip("/")
