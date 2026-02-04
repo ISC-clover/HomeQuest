@@ -88,13 +88,11 @@ def page_group_detail():
                 
                 # 生成ボタン
                 if st.button("➕ コードを生成する", type="primary"):
-                    # APIを叩いてコードを生成
                     res = api.generate_invite_code(group_id)
                     
                     if "error" in res:
                         st.error(res["error"])
                     else:
-                        # APIが生成したコードを返してくれる場合
                         new_code = res.get("invite_code") or res.get("code")
                         msg = f"コード「{new_code}」を発行しました！" if new_code else "コードを生成しました"
                         st.toast(msg, icon="🎉")

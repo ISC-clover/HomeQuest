@@ -1,12 +1,12 @@
 import streamlit as st
 
 def page_home():
-    st.title("🏰 ホーム画面")
+    st.title("🏰 ホーム")
     
     # ユーザー情報の取得
     me = st.session_state.api.get_me()
     if "error" not in me:
-        st.write(f"ようこそ、勇者 **{me['user_name']}** (ID: {me['id']})")
+        st.write(f"ようこそ、 **{me['user_name']}** (ID: {me['id']})")
     
     st.divider()
     
@@ -14,16 +14,16 @@ def page_home():
     col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("🛡️ グループ管理", use_container_width=True):
+        if st.button("🛡️ グループ", use_container_width=True):
             st.session_state.current_page = "groups"
             st.rerun()
             
-        if st.button("📜 クエスト一覧", use_container_width=True):
+        if st.button("📜 クエスト", use_container_width=True):
             st.session_state.current_page = "quests"
             st.rerun()
             
     with col2:
-        if st.button("💰 報酬ショップ", use_container_width=True):
+        if st.button("💰 ショップ", use_container_width=True):
             st.session_state.current_page = "shop"
             st.rerun()
 

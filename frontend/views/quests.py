@@ -96,7 +96,7 @@ def page_quests():
                         elif status == "pending":
                             c2.info("⏳ 審査中")
                         else:
-                            if c2.button("報告する", key=f"rep_{q['id']}"):
+                            if c2.button("挑戦する", key=f"rep_{q['id']}"):
                                 st.session_state.report_quest_id = q["id"]
                                 st.session_state.current_page = "quest_report"
                                 st.rerun()

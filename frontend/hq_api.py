@@ -118,7 +118,6 @@ class HomeQuestAPI:
         return self._handle_response(res)
     
     def leave_group(self, group_id: int):
-        """グループから脱退する"""
         if not self.token:
             return {"error": "Unauthorized"}
             
@@ -137,7 +136,6 @@ class HomeQuestAPI:
             return {"error": str(e)}
         
     def delete_group(self, group_id: int):
-        """グループ削除（オーナーのみ）"""
         res = requests.delete(f"{self.api_url}/groups/{group_id}", headers=self._get_headers())
         return self._handle_response(res)
 
@@ -170,7 +168,6 @@ class HomeQuestAPI:
                 uploaded_file.type
             )
         }
-
         res = requests.post(
             f"{self.api_url}/quests/{quest_id}/complete",
             files=files,
@@ -197,7 +194,6 @@ class HomeQuestAPI:
     # --- ショップ関連 ---
 
     def add_shop_item(self, group_id: int, item_name: str, cost: int, description: str = None, limit_per_user: int = None):
-        """ショップアイテムを追加（購入制限対応）"""
         payload = {
             "item_name": item_name,
             "cost_points": cost,
@@ -224,7 +220,6 @@ class HomeQuestAPI:
         return self._handle_response(res)
     
     def get_my_submissions(self, group_id: int):
-        """自分の提出履歴を取得"""
         res = requests.get(
             f"{self.api_url}/groups/{group_id}/my_submissions",
             headers=self._get_headers()

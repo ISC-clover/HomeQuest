@@ -1,7 +1,7 @@
 import streamlit as st
 
 def page_groups():
-    st.title("🛡️ グループ管理")
+    st.title("🛡️ グループ")
     
     api = st.session_state.api
     me = api.get_me()
@@ -9,14 +9,8 @@ def page_groups():
     if "error" in me:
         st.error("ユーザー情報の取得に失敗しました")
         return
-
-    # -------------------------------------------
-    # 処理を行う関数（コールバック）の定義
-    # -------------------------------------------
-    # これらはボタンが押された瞬間に（画面再描画の前に）実行されます
     
     def handle_create_group():
-        # session_stateから現在の入力値を取得
         name = st.session_state.input_create_group_name
         
         if not name:
@@ -29,7 +23,6 @@ def page_groups():
             st.session_state.group_msg = {"type": "error", "text": res["error"]}
         else:
             st.session_state.group_msg = {"type": "success", "text": f"グループ「{res['group_name']}」を作成しました！"}
-            # ★ここで値をクリアしてもエラーになりません（再描画前なので）
             st.session_state.input_create_group_name = ""
 
     def handle_join_group():
@@ -45,7 +38,6 @@ def page_groups():
             st.session_state.group_msg = {"type": "error", "text": res["error"]}
         else:
             st.session_state.group_msg = {"type": "success", "text": res.get("message", "参加しました！")}
-            # 入力欄をクリア
             st.session_state.input_join_code = ""
 
     # -------------------------------------------
@@ -87,7 +79,7 @@ def page_groups():
 
     # 2. 新規作成
     with tab2:
-        st.subheader("新しいギルドを立ち上げる")
+        st.subheader("グループを新規作成")
         # keyを指定しておくと、コールバック内で st.session_state.input_create_group_name として値を取れます
         st.text_input("グループ名", key="input_create_group_name")
         

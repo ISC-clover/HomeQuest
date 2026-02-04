@@ -41,12 +41,7 @@ app.add_middleware(
 )
 
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
-
-# ディレクトリ作成 (os.makedirsではなく、Pathオブジェクトのメソッドを使います)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
-# 3. 画像配信設定 (app = FastAPI() の後あたり)
-# StaticFiles は Path オブジェクトのままでも動きます
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 #health check
@@ -227,34 +222,18 @@ async def complete_quest(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # 1. 安全なファイル名を生成 (日本語ファイル名対策)
-    # 元のファイル名から拡張子 (.png や .jpg) だけ抜き出す
     extension = os.path.splitext(file.filename)[1]
-    
-    # ファイル名を "ユーザーID_クエストID_ランダムな文字列.拡張子" にする
-    # 例: 1_5_a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11.png
     safe_filename = f"{current_user.id}_{quest_id}_{uuid.uuid4()}{extension}"
-    
-    # 2. 保存パスを作成
-    # UPLOAD_DIR が Path("uploads") であれば、 / 演算子で結合できます
     file_path = UPLOAD_DIR / safe_filename
-    
-    # 3. ファイルを保存
     contents = await file.read()
-
     with open(file_path, "wb") as buffer:
         buffer.write(contents)
-        
-    # 4. DB保存処理
-    db_path = f"/static/{safe_filename}" # 文字列に変換してDBへ
+    db_path = f"/static/{safe_filename}"
     result, message = crud.submit_quest_completion(db, current_user.id, quest_id, db_path)
-    
     if not result:
-        # 失敗時はゴミファイルを残さないように削除しておくと親切ですが、必須ではありません
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=400, detail=message)
-        
     return {"message": message}
 
 #get quest complete
@@ -280,19 +259,12 @@ def review_submission(
     log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="提出が見つかりません")
-        
     if not crud.is_group_host(db, current_user.id, log.group_id) and not crud.is_group_owner(db, current_user.id, log.group_id):
         raise HTTPException(status_code=403, detail="権限がありません")
-        
-    # --- 修正箇所: 戻り値の受け取り方 ---
     success, message = crud.review_quest_submission(db, log_id, review.approved)
-    
     if not success:
         raise HTTPException(status_code=400, detail=message)
-        
-    # bool型の success に .status は無いので、承認状況から文字列を作る
     status_str = "approved" if review.approved else "rejected"
-    
     return {"message": message, "status": status_str}
 
 #delete quest

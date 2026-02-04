@@ -1,7 +1,7 @@
 import streamlit as st
 
 def page_shop():
-    st.title("🛍️ 報酬ショップ")
+    st.title("🛍️ ショップ")
     st.write("ショップを開くグループを選択してください")
 
     api = st.session_state.api

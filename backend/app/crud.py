@@ -64,22 +64,18 @@ def add_user_to_group(db: Session, user_id: int, group_id: int):
     return user_group
 
 def get_group_detail(db: Session, group_id: int):
-    # グループを取得
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         return None
 
-    # メンバー情報の整形（ポイントや役割など）
-    # ※ここが複雑なので手動で辞書を作っているはずです
     users_data = []
     hosts_data = []
     
     for member in group.members:
-        # UserGroupテーブルの情報などから整形
         u_info = {
             "id": member.user.id,
             "user_name": member.user.user_name,
-            "points": member.points, # UserGroupにあるポイント
+            "points": member.points,
             "is_host": member.is_host
         }
         users_data.append(u_info)
@@ -97,8 +93,8 @@ def get_group_detail(db: Session, group_id: int):
         "invite_code": group.invite_code,
         "users": users_data,
         "hosts": hosts_data,
-        "shops": group.shops,   # リレーションで自動取得
-        "quests": group.quests  # リレーションで自動取得
+        "shops": group.shops,
+        "quests": group.quests
     }
     
 def create_quest(db: Session, quest: schemas.QuestCreate, group_id: int):
@@ -167,24 +163,19 @@ def get_user_purchases(db: Session, user_id: int):
     ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
     
 def submit_quest_completion(db: Session, user_id: int, quest_id: int, proof_path: str):
-    # クエスト情報を取得して group_id を特定
     quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
     if not quest:
         return False, "Quest not found"
-        
-    # 重複チェック
     existing = db.query(models.QuestCompletionLog).filter(
         models.QuestCompletionLog.quest_id == quest_id,
         models.QuestCompletionLog.user_id == user_id,
         models.QuestCompletionLog.status.in_(["pending", "approved"])
     ).first()
-    
     if existing:
         return False, "Already submitted or approved"
-
     db_log = models.QuestCompletionLog(
         user_id=user_id,
-        quest_id=quest_id,    # ★ここが重要。Noneにならないように
+        quest_id=quest_id,
         group_id=quest.group_id,
         status="pending",
         proof_image_path=proof_path,
@@ -196,7 +187,6 @@ def submit_quest_completion(db: Session, user_id: int, quest_id: int, proof_path
     return True, "Submission received"
 
 def get_pending_submissions(db: Session, group_id: int):
-    # ユーザー情報とクエスト情報を結合(JOIN)して取得
     logs = db.query(models.QuestCompletionLog).options(
         joinedload(models.QuestCompletionLog.user),
         joinedload(models.QuestCompletionLog.quest)
@@ -204,18 +194,14 @@ def get_pending_submissions(db: Session, group_id: int):
         models.QuestCompletionLog.group_id == group_id,
         models.QuestCompletionLog.status == "pending"
     ).all()
-    
-    # Pydanticモデルに合わせてデータを整形
     results = []
     for log in logs:
-        # DBモデルからPydanticスキーマへ変換しつつ、名前フィールドを埋める
         item = schemas.QuestCompletionLog.model_validate(log)
         if log.user:
             item.user_name = log.user.user_name
         if log.quest:
             item.quest_title = log.quest.quest_name
         results.append(item)
-        
     return results
 
 def review_quest_submission(db: Session, log_id: int, approved: bool):
@@ -225,13 +211,8 @@ def review_quest_submission(db: Session, log_id: int, approved: bool):
         .filter(models.QuestCompletionLog.id == log_id)
         .first()
     )
-
     if not log:
         return False, "Submission not found"
-
-    # --------------------
-    # ステータス更新
-    # --------------------
     if approved:
         log.status = "approved"
 
@@ -243,44 +224,27 @@ def review_quest_submission(db: Session, log_id: int, approved: bool):
             )
             .first()
         )
-
         if user_group and log.quest and hasattr(user_group, "points"):
             user_group.points = (user_group.points or 0) + log.quest.reward_points
     else:
         log.status = "rejected"
-
-    # --------------------
-    # 画像削除
-    # --------------------
     if log.proof_image_path:
         try:
-            # "/static/xxx.jpg" → "xxx.jpg"
             filename = Path(log.proof_image_path).name
             image_path = UPLOAD_DIR / filename
-
             if image_path.exists():
                 image_path.unlink()
-
-            # DB側の参照も消す（任意だけど推奨）
             log.proof_image_path = None
-
         except Exception as e:
-            # 承認処理は止めない
             print(f"[WARN] Failed to delete image: {e}")
-
     db.commit()
     db.refresh(log)
     return True, "Reviewed successfully"
-
-# ---------------------------------------------------------
-# 追加: 自分の提出状況を確認するための関数 (Frontendでボタン隠す用)
-# ---------------------------------------------------------
 def get_my_quest_logs(db: Session, group_id: int, user_id: int):
     return db.query(models.QuestCompletionLog).filter(
         models.QuestCompletionLog.group_id == group_id,
         models.QuestCompletionLog.user_id == user_id
     ).all()
-
 def get_group_purchase_history(db: Session, group_id: int):
     results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(
         models.PurchaseHistory.group_id == group_id
@@ -424,10 +388,6 @@ def get_user_joined_groups(db: Session, user_id: int):
     )
     
 def leave_group(db: Session, group_id: int, user_id: int) -> bool:
-    """
-    指定されたユーザーをグループから削除（脱退）させる
-    """
-    # 紐付けデータを探す
     link = db.query(models.UserGroup).filter(
         models.UserGroup.group_id == group_id,
         models.UserGroup.user_id == user_id
@@ -440,7 +400,6 @@ def leave_group(db: Session, group_id: int, user_id: int) -> bool:
     return False
 
 def delete_group(db: Session, group_id: int) -> bool:
-    """グループを削除する"""
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if group:
         db.delete(group)

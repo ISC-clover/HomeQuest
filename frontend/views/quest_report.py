@@ -22,7 +22,7 @@ def page_quest_report():
         del st.session_state["report_quest_id"]
         st.rerun()
 
-    st.markdown("###証拠写真をアップロードしてください")
+    st.markdown("### 証拠写真をアップロードしてください")
     
     uploaded_file = st.file_uploader("画像を選択", type=["jpg", "jpeg", "png"])
     

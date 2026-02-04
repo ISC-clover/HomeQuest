@@ -52,9 +52,8 @@ class QuestCompletionLog(BaseModel):
     group_id: int
     status: str
     proof_image_path: str | None = None
-    completed_at: datetime | None = None  # 追加
+    completed_at: datetime | None = None
     
-    # 追加: フロントエンド表示用
     user_name: str | None = None
     quest_title: str | None = None
 

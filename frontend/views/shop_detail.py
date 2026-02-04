@@ -44,7 +44,7 @@ def page_shop_detail():
             st.session_state.current_page = "shop"
             st.rerun()
     with col_head2:
-        st.title(f"🛍️ {group['group_name']} 雑貨店")
+        st.title(f"🛍️ {group['group_name']} のショップ")
 
     # 所持ポイント表示
     st.markdown(f"""

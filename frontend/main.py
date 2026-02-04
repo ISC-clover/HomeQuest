@@ -19,7 +19,7 @@ if "current_page" not in st.session_state:
 if "is_logged_in" not in st.session_state:
     st.session_state.is_logged_in = False
 
-# --- 2. ログイン画面の定義（これだけはmainに残すことが多いですが、分けてもOK） ---
+# --- 2. ログイン画面 ---
 def page_login_signup():
     st.title("⚔️ HomeQuest - ログイン")
     tab1, tab2 = st.tabs(["ログイン", "新規登録"])
@@ -42,7 +42,7 @@ def page_login_signup():
             if "error" in res:
                 st.error(res["error"])
             else:
-                st.success(f"登録完了！ID: {res['id']}")
+                st.success(f"登録完了！あなたのIDは {res['id']} です。忘れずに記録してください。")
 
 # --- 3. メインルーティング ---
 def main():
