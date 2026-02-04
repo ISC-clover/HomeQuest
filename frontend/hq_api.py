@@ -177,8 +177,15 @@ class HomeQuestAPI:
         res = requests.delete(f"{self.api_url}/quests/{quest_id}", headers=self._get_headers())
         return self._handle_response(res)
 
-    def complete_quest(self, quest_id: int, file_obj, file_name: str, file_type: str):
-        files = {"file": (file_name, file_obj, file_type)}
+    def complete_quest(self, quest_id: int, uploaded_file):
+        files = {
+            "file": (
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+                uploaded_file.type
+            )
+        }
+
         res = requests.post(
             f"{self.api_url}/quests/{quest_id}/complete",
             files=files,

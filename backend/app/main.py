@@ -41,7 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 
 # ディレクトリ作成 (os.makedirsではなく、Pathオブジェクトのメソッドを使います)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -241,8 +241,10 @@ async def complete_quest(
     file_path = UPLOAD_DIR / safe_filename
     
     # 3. ファイルを保存
+    contents = await file.read()
+
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        buffer.write(contents)
         
     # 4. DB保存処理
     db_path = f"/static/{safe_filename}" # 文字列に変換してDBへ

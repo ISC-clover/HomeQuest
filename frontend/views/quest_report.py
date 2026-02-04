@@ -34,12 +34,7 @@ def page_quest_report():
         if st.button("送信する", type="primary"):
             with st.spinner("送信中..."):
                 # API呼び出し
-                res = api.complete_quest(
-                    quest_id, 
-                    uploaded_file, # ファイルオブジェクト
-                    uploaded_file.name, 
-                    uploaded_file.type
-                )
+                res = api.complete_quest(quest_id, uploaded_file)
                 
                 if "error" in res:
                     st.error(res["error"])
