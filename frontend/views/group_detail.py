@@ -1,5 +1,5 @@
-import streamlit as st
 import time
+import streamlit as st
 
 def page_group_detail():
     api = st.session_state.api

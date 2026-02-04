@@ -1,5 +1,4 @@
-import os
-import hashlib
+import os, hashlib, models, database
 from datetime import datetime, timedelta
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
@@ -7,7 +6,6 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-import models, schemas, database
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your_secret_key_needs_to_be_very_long_and_random")
 ALGORITHM = "HS256"

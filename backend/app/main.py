@@ -1,14 +1,13 @@
+import models, schemas, crud, auth, os, uuid
 from fastapi import FastAPI, Depends, HTTPException, status, Security, Request, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from database import Base, engine, get_db
-import models, schemas, crud, auth, os
 from sqlalchemy.orm import Session
 from datetime import timedelta
-import shutil
 from pathlib import Path
-from fastapi.staticfiles import StaticFiles
-import uuid
+
 
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
