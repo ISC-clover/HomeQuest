@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session, joinedload
 import models, schemas, auth, secrets, os
 from datetime import datetime, timedelta
+from pathlib import Path
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = auth.get_password_hash(user.password)
@@ -217,40 +219,55 @@ def get_pending_submissions(db: Session, group_id: int):
     return results
 
 def review_quest_submission(db: Session, log_id: int, approved: bool):
-    # ログと、関連するクエスト情報を取得
-    log = db.query(models.QuestCompletionLog).options(
-        joinedload(models.QuestCompletionLog.quest)
-    ).filter(models.QuestCompletionLog.id == log_id).first()
-    
+    log = (
+        db.query(models.QuestCompletionLog)
+        .options(joinedload(models.QuestCompletionLog.quest))
+        .filter(models.QuestCompletionLog.id == log_id)
+        .first()
+    )
+
     if not log:
         return False, "Submission not found"
-        
+
+    # --------------------
+    # ステータス更新
+    # --------------------
     if approved:
         log.status = "approved"
-        
-        # ポイント付与処理
-        # ユーザーとグループの紐付け(UserGroup)を取得
-        user_group = db.query(models.UserGroup).filter(
-            models.UserGroup.user_id == log.user_id,
-            models.UserGroup.group_id == log.group_id
-        ).first()
-        
-        if user_group and log.quest:
-            # ポイント加算
-            # UserInGroupモデルに 'points' カラムがない場合、
-            # もしpointsカラムが未作成なら models.py の UserGroup に points = Column(Integer, default=0) が必要です。
-            # 今回は models.py にある前提で進めますが、なければエラーになります。
-            # ※ 前回のコードでは UserGroup に points がない場合があったので確認用処理
-            if hasattr(user_group, "points"):
-                current_pts = user_group.points or 0
-                user_group.points = current_pts + log.quest.reward_points
-            else:
-                # pointsカラムがない場合はエラー回避 (実装に合わせて調整してください)
-                pass 
-                
+
+        user_group = (
+            db.query(models.UserGroup)
+            .filter(
+                models.UserGroup.user_id == log.user_id,
+                models.UserGroup.group_id == log.group_id
+            )
+            .first()
+        )
+
+        if user_group and log.quest and hasattr(user_group, "points"):
+            user_group.points = (user_group.points or 0) + log.quest.reward_points
     else:
         log.status = "rejected"
-        
+
+    # --------------------
+    # 画像削除
+    # --------------------
+    if log.proof_image_path:
+        try:
+            # "/static/xxx.jpg" → "xxx.jpg"
+            filename = Path(log.proof_image_path).name
+            image_path = UPLOAD_DIR / filename
+
+            if image_path.exists():
+                image_path.unlink()
+
+            # DB側の参照も消す（任意だけど推奨）
+            log.proof_image_path = None
+
+        except Exception as e:
+            # 承認処理は止めない
+            print(f"[WARN] Failed to delete image: {e}")
+
     db.commit()
     db.refresh(log)
     return True, "Reviewed successfully"
@@ -280,9 +297,9 @@ def get_group_purchase_history(db: Session, group_id: int):
     return logs
 
 def get_group_quest_history(db: Session, group_id: int):
-    results = db.query(models.QuestCompletion, models.User, models.Quest).join(models.User).join(models.Quest).filter(
-        models.QuestCompletion.group_id == group_id
-    ).order_by(models.QuestCompletion.completed_at.desc()).all()
+    results = db.query(models.QuestCompletionLog, models.User, models.Quest).join(models.User).join(models.Quest).filter(
+        models.QuestCompletionLog.group_id == group_id
+    ).order_by(models.QuestCompletionLog.completed_at.desc()).all()
     logs = []
     for comp, user, quest in results:
         logs.append({
