@@ -55,15 +55,17 @@ def page_quests():
             if not detail or not detail.get("quests"):
                 continue
             
-            # ★ 追加: 自分の提出済み(or審査中)クエストIDを取得
+            # 自分の提出ログを取得
             my_logs = api.get_my_submissions(g["id"])
-            completed_quest_ids = []
-            if not isinstance(my_logs, dict): # エラーでなければ
-                # 承認済み(approved) または 審査中(pending) のIDリストを作成
-                completed_quest_ids = [
-                    log["quest_id"] for log in my_logs 
-                    if log["status"] in ["approved", "pending"]
-                ]
+
+            # quest_id -> status の map を作成
+            status_map = {}
+            if not isinstance(my_logs, dict):  # APIエラーでなければ
+                status_map = {
+                    log["quest_id"]: log["status"]
+                    for log in my_logs
+                    if log.get("status") in ["approved", "pending"]
+                }
 
             # 有効なクエスト抽出
             active_quests = []
@@ -87,18 +89,18 @@ def page_quests():
                         if q.get("description"):
                             c1.caption(q["description"])
                         
-                        # ★ ボタン制御ロジック
-                        if q["id"] in completed_quest_ids:
-                            # 提出済みならステータスを表示
-                            status_log = next((l for l in my_logs if l["quest_id"] == q["id"]), None)
-                            status_text = "✅ 完了" if status_log["status"] == "approved" else "⏳ 審査中"
-                            c2.info(status_text)
+                        # ---- ボタン制御ロジック（安全版） ----
+                        status = status_map.get(q["id"])
+
+                        if status == "approved":
+                            c2.info("✅ 完了")
+                        elif status == "pending":
+                            c2.info("⏳ 審査中")
                         else:
-                            # 未提出ならボタン表示
                             if c2.button("報告する", key=f"rep_{q['id']}"):
-                                 st.session_state.report_quest_id = q["id"]
-                                 st.session_state.current_page = "quest_report"
-                                 st.rerun()
+                                st.session_state.report_quest_id = q["id"]
+                                st.session_state.current_page = "quest_report"
+                                st.rerun()
 
         if not has_active_quests:
             st.info("現在、挑戦できるクエストはありません。")
