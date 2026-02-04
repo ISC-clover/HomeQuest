@@ -131,6 +131,30 @@ class HomeQuestAPI:
             headers=self._get_headers()
         )
         return self._handle_response(res)
+    
+    def leave_group(self, group_id: int):
+        """グループから脱退する"""
+        if not self.token:
+            return {"error": "Unauthorized"}
+            
+        try:
+            resp = requests.post(
+                f"{self.api_url}/groups/{group_id}/leave",
+                headers=self._get_headers()
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code == 400:
+                return {"error": "このグループには所属していません"}
+            else:
+                return {"error": f"Failed to leave: {resp.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+        
+    def delete_group(self, group_id: int):
+        """グループ削除（オーナーのみ）"""
+        res = requests.delete(f"{self.api_url}/groups/{group_id}", headers=self._get_headers())
+        return self._handle_response(res)
 
     # --- クエスト関連 ---
 
@@ -180,11 +204,13 @@ class HomeQuestAPI:
 
     # --- ショップ関連 ---
 
-    def add_shop_item(self, group_id: int, item_name: str, cost: int, description: str = None):
+    def add_shop_item(self, group_id: int, item_name: str, cost: int, description: str = None, limit_per_user: int = None):
+        """ショップアイテムを追加（購入制限対応）"""
         payload = {
             "item_name": item_name,
             "cost_points": cost,
-            "description": description
+            "description": description,
+            "limit_per_user": limit_per_user # ★ここを追加
         }
         res = requests.post(
             f"{self.api_url}/groups/{group_id}/shops",

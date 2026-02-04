@@ -97,6 +97,7 @@ class GroupDetail(BaseModel):
     users: list[UserInGroup]
     shops: list[Shop]
     quests: list[Quest]
+    invite_code: str | None = None
     
     model_config = {"from_attributes": True}
 

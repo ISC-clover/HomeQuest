@@ -327,3 +327,31 @@ def read_user_joined_groups(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return crud.get_user_joined_groups(db, user_id)
+
+#leave group
+@app.post("/groups/{group_id}/leave")
+def leave_group(
+    group_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    success = crud.leave_group(db, group_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Not a member of this group")
+    
+    return {"message": "Successfully left the group"}
+
+#delete group
+@app.delete("/groups/{group_id}")
+def delete_group_endpoint(
+    group_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    if not crud.is_group_owner(db, current_user.id, group_id):
+        raise HTTPException(status_code=403, detail="オーナーのみ削除可能です")
+    
+    success = crud.delete_group(db, group_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="グループが見つかりません")
+    return {"message": "グループを削除しました"}

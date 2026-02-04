@@ -64,39 +64,42 @@ def add_user_to_group(db: Session, user_id: int, group_id: int):
     return user_group
 
 def get_group_detail(db: Session, group_id: int):
+    # グループを取得
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         return None
-    user_groups = (
-        db.query(models.UserGroup, models.User)
-        .join(models.User, models.User.id == models.UserGroup.user_id)
-        .filter(models.UserGroup.group_id == group_id)
-        .all()
-    )
-    members_list = []
-    hosts_list = []
-    for ug, user in user_groups:
-        member_data = {
-            "id": user.id,
-            "user_name": user.user_name,
-            "points": ug.points,
-            "is_host": ug.is_host
+
+    # メンバー情報の整形（ポイントや役割など）
+    # ※ここが複雑なので手動で辞書を作っているはずです
+    users_data = []
+    hosts_data = []
+    
+    for member in group.members:
+        # UserGroupテーブルの情報などから整形
+        u_info = {
+            "id": member.user.id,
+            "user_name": member.user.user_name,
+            "points": member.points, # UserGroupにあるポイント
+            "is_host": member.is_host
         }
-        members_list.append(member_data)
-        if ug.is_host:
-            host_data = {
-                "id": user.id,
-                "user_name": user.user_name
-            }
-            hosts_list.append(host_data)
+        users_data.append(u_info)
+        
+        if member.is_host or member.user.id == group.owner_user_id:
+            hosts_data.append({
+                "id": member.user.id,
+                "user_name": member.user.user_name
+            })
+
+    # ★ここでデータを返しますが、ここに invite_code を追加します！
     return {
         "id": group.id,
         "group_name": group.group_name,
         "owner_user_id": group.owner_user_id,
-        "hosts": hosts_list,
-        "users": members_list,
-        "shops": group.shops,
-        "quests": group.quests
+        "invite_code": group.invite_code,  # ← 犯人はここ！この一行が必要です
+        "users": users_data,
+        "hosts": hosts_data,
+        "shops": group.shops,   # リレーションで自動取得
+        "quests": group.quests  # リレーションで自動取得
     }
     
 def create_quest(db: Session, quest: schemas.QuestCreate, group_id: int):
@@ -357,3 +360,28 @@ def get_user_joined_groups(db: Session, user_id: int):
         .filter(models.UserGroup.user_id == user_id)
         .all()
     )
+    
+def leave_group(db: Session, group_id: int, user_id: int) -> bool:
+    """
+    指定されたユーザーをグループから削除（脱退）させる
+    """
+    # 紐付けデータを探す
+    link = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    
+    if link:
+        db.delete(link)
+        db.commit()
+        return True
+    return False
+
+def delete_group(db: Session, group_id: int) -> bool:
+    """グループを削除する"""
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if group:
+        db.delete(group)
+        db.commit()
+        return True
+    return False
