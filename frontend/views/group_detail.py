@@ -51,7 +51,7 @@ def page_group_detail():
         st.subheader("🛠️ 管理メニュー")
         
         # タブで機能を整理
-        manage_tabs = ["招待コード", "クエスト管理"]
+        manage_tabs = ["招待コード"]
         if is_owner:
             manage_tabs.extend(["権限管理", "グループ設定"])
             
@@ -102,16 +102,9 @@ def page_group_detail():
                         time.sleep(1)
                         st.rerun()
 
-        # -- B. クエスト管理 --
-        with tabs[1]:
-            st.write("新しいクエストを作成してメンバーに挑戦させましょう！")
-            if st.button("📜 クエスト追加画面へ", type="primary"):
-                st.session_state.current_page = "quest_add"
-                st.rerun()
-
         # -- C. 権限管理（オーナーのみ）--
         if is_owner:
-            with tabs[2]:
+            with tabs[1]:
                 st.write("メンバーIDを指定して、ホスト権限を変更または追放します。")
                 
                 col_input, col_action = st.columns([1, 2])
@@ -160,7 +153,7 @@ def page_group_detail():
 
         # -- D. グループ設定（オーナーのみ）--
         if is_owner:
-            with tabs[3]:
+            with tabs[2]:
                 st.error("⚠️ この操作は取り消せません")
                 if st.button("💣 グループを完全に削除する", type="primary"):
                     res = api.delete_group(group_id)

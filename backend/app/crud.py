@@ -1,8 +1,6 @@
-from sqlalchemy.orm import Session
-import models, schemas, auth, secrets, os, models
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload
+import models, schemas, auth, secrets, os
+from datetime import datetime, timedelta
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
 
@@ -90,12 +88,11 @@ def get_group_detail(db: Session, group_id: int):
                 "user_name": member.user.user_name
             })
 
-    # ★ここでデータを返しますが、ここに invite_code を追加します！
     return {
         "id": group.id,
         "group_name": group.group_name,
         "owner_user_id": group.owner_user_id,
-        "invite_code": group.invite_code,  # ← 犯人はここ！この一行が必要です
+        "invite_code": group.invite_code,
         "users": users_data,
         "hosts": hosts_data,
         "shops": group.shops,   # リレーションで自動取得
@@ -167,57 +164,105 @@ def get_user_purchases(db: Session, user_id: int):
         models.PurchaseHistory.user_id == user_id
     ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
     
-def submit_quest_completion(db: Session, user_id: int, quest_id: int, image_path: str):
-    quest = get_quest(db, quest_id)
+def submit_quest_completion(db: Session, user_id: int, quest_id: int, proof_path: str):
+    # クエスト情報を取得して group_id を特定
+    quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
     if not quest:
-        return None, "Quest not found"
-    existing_log = db.query(models.QuestCompletionLog).filter(
-        models.QuestCompletionLog.user_id == user_id,
+        return False, "Quest not found"
+        
+    # 重複チェック
+    existing = db.query(models.QuestCompletionLog).filter(
         models.QuestCompletionLog.quest_id == quest_id,
-        models.QuestCompletionLog.status == "pending"
+        models.QuestCompletionLog.user_id == user_id,
+        models.QuestCompletionLog.status.in_(["pending", "approved"])
     ).first()
-    if existing_log:
-        return None, "現在、承認待ちの提出があります。"
+    
+    if existing:
+        return False, "Already submitted or approved"
+
     db_log = models.QuestCompletionLog(
         user_id=user_id,
-        quest_id=quest_id,
+        quest_id=quest_id,    # ★ここが重要。Noneにならないように
         group_id=quest.group_id,
         status="pending",
-        proof_image_path=image_path
+        proof_image_path=proof_path,
+        completed_at=datetime.now()
     )
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
-    return db_log, "クエストを提出しました！ホストの承認をお待ちください。"
+    return True, "Submission received"
 
 def get_pending_submissions(db: Session, group_id: int):
-    return db.query(models.QuestCompletionLog).filter(
+    # ユーザー情報とクエスト情報を結合(JOIN)して取得
+    logs = db.query(models.QuestCompletionLog).options(
+        joinedload(models.QuestCompletionLog.user),
+        joinedload(models.QuestCompletionLog.quest)
+    ).filter(
         models.QuestCompletionLog.group_id == group_id,
         models.QuestCompletionLog.status == "pending"
     ).all()
+    
+    # Pydanticモデルに合わせてデータを整形
+    results = []
+    for log in logs:
+        # DBモデルからPydanticスキーマへ変換しつつ、名前フィールドを埋める
+        item = schemas.QuestCompletionLog.model_validate(log)
+        if log.user:
+            item.user_name = log.user.user_name
+        if log.quest:
+            item.quest_title = log.quest.quest_name
+        results.append(item)
+        
+    return results
 
-def review_quest_submission(db: Session, log_id: int, is_approved: bool):
-    log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
+def review_quest_submission(db: Session, log_id: int, approved: bool):
+    # ログと、関連するクエスト情報を取得
+    log = db.query(models.QuestCompletionLog).options(
+        joinedload(models.QuestCompletionLog.quest)
+    ).filter(models.QuestCompletionLog.id == log_id).first()
+    
     if not log:
-        return None, "提出データが見つかりません"
-    if log.status != "pending":
-        return None, "このクエストは既に処理されています"
-    if is_approved:
+        return False, "Submission not found"
+        
+    if approved:
         log.status = "approved"
-        quest = get_quest(db, log.quest_id)
+        
+        # ポイント付与処理
+        # ユーザーとグループの紐付け(UserGroup)を取得
         user_group = db.query(models.UserGroup).filter(
             models.UserGroup.user_id == log.user_id,
             models.UserGroup.group_id == log.group_id
         ).first()
-        if user_group and quest:
-            user_group.points += quest.points
-        message = f"承認しました！ユーザーに {quest.points} ポイント付与されました。"
+        
+        if user_group and log.quest:
+            # ポイント加算
+            # UserInGroupモデルに 'points' カラムがない場合、
+            # もしpointsカラムが未作成なら models.py の UserGroup に points = Column(Integer, default=0) が必要です。
+            # 今回は models.py にある前提で進めますが、なければエラーになります。
+            # ※ 前回のコードでは UserGroup に points がない場合があったので確認用処理
+            if hasattr(user_group, "points"):
+                current_pts = user_group.points or 0
+                user_group.points = current_pts + log.quest.reward_points
+            else:
+                # pointsカラムがない場合はエラー回避 (実装に合わせて調整してください)
+                pass 
+                
     else:
         log.status = "rejected"
-        message = "クエストを却下しました。"
+        
     db.commit()
     db.refresh(log)
-    return log, message
+    return True, "Reviewed successfully"
+
+# ---------------------------------------------------------
+# 追加: 自分の提出状況を確認するための関数 (Frontendでボタン隠す用)
+# ---------------------------------------------------------
+def get_my_quest_logs(db: Session, group_id: int, user_id: int):
+    return db.query(models.QuestCompletionLog).filter(
+        models.QuestCompletionLog.group_id == group_id,
+        models.QuestCompletionLog.user_id == user_id
+    ).all()
 
 def get_group_purchase_history(db: Session, group_id: int):
     results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(

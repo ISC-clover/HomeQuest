@@ -35,8 +35,8 @@ class PurchaseLog(BaseModel):
 class QuestCreate(BaseModel):
     quest_name: str
     description: str | None = None
-    start_time: datetime | None = None
-    end_time: datetime | None = None
+    start_time: datetime
+    end_time: datetime
     reward_points: int = 10
     recurrence: str = "one_off"
 
@@ -50,11 +50,14 @@ class QuestCompletionLog(BaseModel):
     user_id: int
     quest_id: int
     group_id: int
-    completed_at: datetime
-    quest_title: str | None = None
     status: str
     proof_image_path: str | None = None
+    completed_at: datetime | None = None  # 追加
     
+    # 追加: フロントエンド表示用
+    user_name: str | None = None
+    quest_title: str | None = None
+
     model_config = {"from_attributes": True}
 
 class QuestReview(BaseModel):

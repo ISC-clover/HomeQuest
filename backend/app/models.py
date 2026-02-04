@@ -67,8 +67,8 @@ class Quest(Base):
     group_id = Column(Integer, ForeignKey("groups.id"))
     quest_name = Column(String, index=True)
     description = Column(Text, nullable=True)
-    start_time = Column(DateTime, nullable=True)
-    end_time = Column(DateTime, nullable=True)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
     reward_points = Column(Integer, default=10)
     recurrence = Column(String, default="one_off") 
     

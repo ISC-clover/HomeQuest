@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from hq_api import HomeQuestAPI
-from views import home, groups, quests, shop, group_detail, quest_add, shop_detail
+from views import home, groups, quests, shop, group_detail, quest_manage, shop_detail, quest_report, quest_review
 
 # --- 1. 設定と初期化 ---
 st.set_page_config(page_title="HomeQuest", layout="centered")
@@ -57,14 +57,18 @@ def main():
         groups.page_groups()
     elif st.session_state.current_page == "group_detail":
         group_detail.page_group_detail()
-    elif st.session_state.current_page == "quest_add":
-        quest_add.page_quest_add()
-    elif st.session_state.current_page == "quests":
-        quests.page_quests()
     elif st.session_state.current_page == "shop":
         shop.page_shop()
     elif st.session_state.current_page == "shop_detail":
         shop_detail.page_shop_detail()
+    elif st.session_state.current_page == "quests":
+        quests.page_quests()
+    elif st.session_state.current_page == "quest_manage":
+        quest_manage.page_quest_manage()
+    elif st.session_state.current_page == "quest_report":
+        quest_report.page_quest_report()
+    elif st.session_state.current_page == "quest_review":
+        quest_review.page_quest_review()
     else:
         home.page_home()
     

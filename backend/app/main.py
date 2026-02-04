@@ -8,6 +8,7 @@ from datetime import timedelta
 import shutil
 from pathlib import Path
 from fastapi.staticfiles import StaticFiles
+import uuid
 
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
@@ -40,9 +41,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = Path("static/uploads")
+UPLOAD_DIR = Path(__file__).resolve().parent
+
+# ディレクトリ作成 (os.makedirsではなく、Pathオブジェクトのメソッドを使います)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 3. 画像配信設定 (app = FastAPI() の後あたり)
+# StaticFiles は Path オブジェクトのままでも動きます
+app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 #health check
 @app.get("/")
@@ -222,15 +228,32 @@ async def complete_quest(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    file_name = f"{current_user.id}_{quest_id}_{file.filename}"
-    file_path = UPLOAD_DIR / file_name
+    # 1. 安全なファイル名を生成 (日本語ファイル名対策)
+    # 元のファイル名から拡張子 (.png や .jpg) だけ抜き出す
+    extension = os.path.splitext(file.filename)[1]
+    
+    # ファイル名を "ユーザーID_クエストID_ランダムな文字列.拡張子" にする
+    # 例: 1_5_a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11.png
+    safe_filename = f"{current_user.id}_{quest_id}_{uuid.uuid4()}{extension}"
+    
+    # 2. 保存パスを作成
+    # UPLOAD_DIR が Path("uploads") であれば、 / 演算子で結合できます
+    file_path = UPLOAD_DIR / safe_filename
+    
+    # 3. ファイルを保存
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    db_path = str(file_path)
+    # 4. DB保存処理
+    db_path = f"/static/{safe_filename}" # 文字列に変換してDBへ
     result, message = crud.submit_quest_completion(db, current_user.id, quest_id, db_path)
+    
     if not result:
+        # 失敗時はゴミファイルを残さないように削除しておくと親切ですが、必須ではありません
+        if os.path.exists(file_path):
+            os.remove(file_path)
         raise HTTPException(status_code=400, detail=message)
+        
     return {"message": message}
 
 #get quest complete
@@ -257,13 +280,19 @@ def review_submission(
     if not log:
         raise HTTPException(status_code=404, detail="提出が見つかりません")
         
-    if not crud.is_group_host(db, current_user.id, log.group_id):
+    if not crud.is_group_host(db, current_user.id, log.group_id) and not crud.is_group_owner(db, current_user.id, log.group_id):
         raise HTTPException(status_code=403, detail="権限がありません")
-    result, message = crud.review_quest_submission(db, log_id, review.approved)
-    if not result:
+        
+    # --- 修正箇所: 戻り値の受け取り方 ---
+    success, message = crud.review_quest_submission(db, log_id, review.approved)
+    
+    if not success:
         raise HTTPException(status_code=400, detail=message)
         
-    return {"message": message, "status": result.status}
+    # bool型の success に .status は無いので、承認状況から文字列を作る
+    status_str = "approved" if review.approved else "rejected"
+    
+    return {"message": message, "status": status_str}
 
 #delete quest
 @app.delete("/quests/{quest_id}")
@@ -355,3 +384,11 @@ def delete_group_endpoint(
     if not success:
         raise HTTPException(status_code=404, detail="グループが見つかりません")
     return {"message": "グループを削除しました"}
+
+@app.get("/groups/{group_id}/my_submissions", response_model=list[schemas.QuestCompletionLog])
+def read_my_submissions(
+    group_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    return crud.get_my_quest_logs(db, group_id, current_user.id)

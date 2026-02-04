@@ -210,7 +210,7 @@ class HomeQuestAPI:
             "item_name": item_name,
             "cost_points": cost,
             "description": description,
-            "limit_per_user": limit_per_user # ★ここを追加
+            "limit_per_user": limit_per_user
         }
         res = requests.post(
             f"{self.api_url}/groups/{group_id}/shops",
@@ -229,4 +229,12 @@ class HomeQuestAPI:
 
     def get_purchase_history(self, group_id: int):
         res = requests.get(f"{self.api_url}/groups/{group_id}/history/purchases", headers=self._get_headers())
+        return self._handle_response(res)
+    
+    def get_my_submissions(self, group_id: int):
+        """自分の提出履歴を取得"""
+        res = requests.get(
+            f"{self.api_url}/groups/{group_id}/my_submissions",
+            headers=self._get_headers()
+        )
         return self._handle_response(res)
