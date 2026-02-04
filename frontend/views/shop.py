@@ -16,6 +16,9 @@ def page_shop():
     my_groups = api.get_my_groups(me["id"])
     if not my_groups:
         st.info("まだグループに参加していません")
+        if st.button("🏠 ホームに戻る"):
+            st.session_state.current_page = "home"
+            st.rerun()
         return
 
     # グループ一覧表示
