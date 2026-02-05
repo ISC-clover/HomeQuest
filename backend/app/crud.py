@@ -350,7 +350,7 @@ def get_shop_item(db: Session, item_id: int):
 def delete_shop_item(db: Session, item_id: int):
     item = get_shop_item(db, item_id)
     if item:
-        db(item).is_active = False
+        item.is_active = False
         db.commit()
         return True
     return False
