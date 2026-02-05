@@ -56,6 +56,7 @@ class PurchaseHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
+    shop_item_id = Column(Integer, ForeignKey("shops.id"))
     item_name = Column(String)
     cost = Column(Integer)
     purchased_at = Column(DateTime, default=datetime.now)
