@@ -93,7 +93,7 @@ def get_group_detail(db: Session, group_id: int):
         "invite_code": group.invite_code,
         "users": users_data,
         "hosts": hosts_data,
-        "shops": group.shops,
+        "shops": [shop for shop in group.shops if shop.is_active],
         "quests": group.quests
     }
     
