@@ -126,7 +126,7 @@ def create_shop_item(db: Session, shop_item: schemas.ShopCreate, group_id: int):
     return db_item
 
 def purchase_item(db: Session, user_id: int, item_id: int):
-    shop_item = db.query(models.Shop).filter(models.Shop.id == item_id).first()
+    shop_item = db.query(models.Shop).filter(models.Shop.id == item_id,models.Shop.is_active == True).first()
     if not shop_item:
         return None, "Item not found"
     if shop_item.limit_per_user is not None:
@@ -342,12 +342,15 @@ def delete_quest(db: Session, quest_id: int):
     return False
 
 def get_shop_item(db: Session, item_id: int):
-    return db.query(models.Shop).filter(models.Shop.id == item_id).first()
+    return db.query(models.Shop).filter(
+        models.Shop.id == item_id,
+        models.Shop.is_active == True
+    ).first()
 
 def delete_shop_item(db: Session, item_id: int):
     item = get_shop_item(db, item_id)
     if item:
-        db.delete(item)
+        db(item).is_active = False
         db.commit()
         return True
     return False

@@ -47,6 +47,7 @@ class Shop(Base):
     description = Column(Text, nullable=True)
     cost_points = Column(Integer)
     limit_per_user = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
     
     group = relationship("Group", back_populates="shops")
 
