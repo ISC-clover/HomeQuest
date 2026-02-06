@@ -33,7 +33,6 @@ def page_login_signup():
                 st.rerun()
             else:
                 st.error("ログイン失敗")
-
     with tab2:
         new_name = st.text_input("ユーザー名")
         new_pass = st.text_input("パスワード", type="password")
@@ -49,7 +48,6 @@ def main():
     if not st.session_state.is_logged_in:
         page_login_signup()
         return
-
     # ルーティング分岐を追加
     if st.session_state.current_page == "home":
         home.page_home()
@@ -72,6 +70,5 @@ def main():
     else:
         home.page_home()
     
-
 if __name__ == "__main__":
     main()

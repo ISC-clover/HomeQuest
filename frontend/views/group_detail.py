@@ -170,10 +170,8 @@ def page_group_detail():
     # ------------------------------
     st.subheader(f"👥 メンバー ({len(group['users'])})")
     
-    # 見やすいようにカード形式で表示
     for member in group['users']:
         with st.container():
-            # アイコン決定
             icon = "👤"
             role_text = "メンバー"
             if member['id'] == owner_id:

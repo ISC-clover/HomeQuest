@@ -215,7 +215,6 @@ def review_quest_submission(db: Session, log_id: int, approved: bool):
         return False, "Submission not found"
     if approved:
         log.status = "approved"
-
         user_group = (
             db.query(models.UserGroup)
             .filter(
@@ -395,7 +394,6 @@ def leave_group(db: Session, group_id: int, user_id: int) -> bool:
         models.UserGroup.group_id == group_id,
         models.UserGroup.user_id == user_id
     ).first()
-    
     if link:
         db.delete(link)
         db.commit()
