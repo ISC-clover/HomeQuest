@@ -1,18 +1,3 @@
-"""
-from hq_api import HomeQuestAPI
-
-API_URL = os.getenv("BACKEND_API_URL", "http://backend:8000")
-API_KEY = os.getenv("APP_API_KEY")
-IMAGE_BASE_URL = os.getenv("IMAGE_BASE_URL", "http://localhost:8000")
-
-if "api" not in st.session_state:
-    st.session_state.api = HomeQuestAPI(
-        api_url=API_URL, 
-        api_key=API_KEY, 
-        image_base_url=IMAGE_BASE_URL
-    )
-"""
-
 import requests
 from typing import Optional, Dict, Any
 
@@ -131,6 +116,28 @@ class HomeQuestAPI:
             headers=self._get_headers()
         )
         return self._handle_response(res)
+    
+    def leave_group(self, group_id: int):
+        if not self.token:
+            return {"error": "Unauthorized"}
+            
+        try:
+            resp = requests.post(
+                f"{self.api_url}/groups/{group_id}/leave",
+                headers=self._get_headers()
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code == 400:
+                return {"error": "このグループには所属していません"}
+            else:
+                return {"error": f"Failed to leave: {resp.text}"}
+        except Exception as e:
+            return {"error": str(e)}
+        
+    def delete_group(self, group_id: int):
+        res = requests.delete(f"{self.api_url}/groups/{group_id}", headers=self._get_headers())
+        return self._handle_response(res)
 
     # --- クエスト関連 ---
 
@@ -153,8 +160,14 @@ class HomeQuestAPI:
         res = requests.delete(f"{self.api_url}/quests/{quest_id}", headers=self._get_headers())
         return self._handle_response(res)
 
-    def complete_quest(self, quest_id: int, file_obj, file_name: str, file_type: str):
-        files = {"file": (file_name, file_obj, file_type)}
+    def complete_quest(self, quest_id: int, uploaded_file):
+        files = {
+            "file": (
+                uploaded_file.name,
+                uploaded_file.getvalue(),
+                uploaded_file.type
+            )
+        }
         res = requests.post(
             f"{self.api_url}/quests/{quest_id}/complete",
             files=files,
@@ -180,11 +193,12 @@ class HomeQuestAPI:
 
     # --- ショップ関連 ---
 
-    def add_shop_item(self, group_id: int, item_name: str, cost: int, description: str = None):
+    def add_shop_item(self, group_id: int, item_name: str, cost: int, description: str = None, limit_per_user: int = None):
         payload = {
             "item_name": item_name,
             "cost_points": cost,
-            "description": description
+            "description": description,
+            "limit_per_user": limit_per_user
         }
         res = requests.post(
             f"{self.api_url}/groups/{group_id}/shops",
@@ -203,4 +217,11 @@ class HomeQuestAPI:
 
     def get_purchase_history(self, group_id: int):
         res = requests.get(f"{self.api_url}/groups/{group_id}/history/purchases", headers=self._get_headers())
+        return self._handle_response(res)
+    
+    def get_my_submissions(self, group_id: int):
+        res = requests.get(
+            f"{self.api_url}/groups/{group_id}/my_submissions",
+            headers=self._get_headers()
+        )
         return self._handle_response(res)

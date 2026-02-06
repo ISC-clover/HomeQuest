@@ -14,7 +14,7 @@ services:
       FRONT_URL: ${FRONT_URL}
       TZ: Asia/Tokyo
     volumes:
-      - ./backend/static:/app/static
+      - ./backend/uploads:/app/uploads
 
   db:
     image: postgres:15

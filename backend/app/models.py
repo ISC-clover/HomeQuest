@@ -47,6 +47,7 @@ class Shop(Base):
     description = Column(Text, nullable=True)
     cost_points = Column(Integer)
     limit_per_user = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
     
     group = relationship("Group", back_populates="shops")
 
@@ -56,6 +57,7 @@ class PurchaseHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
+    shop_item_id = Column(Integer, ForeignKey("shops.id"))
     item_name = Column(String)
     cost = Column(Integer)
     purchased_at = Column(DateTime, default=datetime.now)
@@ -67,8 +69,8 @@ class Quest(Base):
     group_id = Column(Integer, ForeignKey("groups.id"))
     quest_name = Column(String, index=True)
     description = Column(Text, nullable=True)
-    start_time = Column(DateTime, nullable=True)
-    end_time = Column(DateTime, nullable=True)
+    start_time = Column(DateTime)
+    end_time = Column(DateTime)
     reward_points = Column(Integer, default=10)
     recurrence = Column(String, default="one_off") 
     

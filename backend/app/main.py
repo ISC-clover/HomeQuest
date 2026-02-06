@@ -1,13 +1,13 @@
+import models, schemas, crud, auth, os, uuid
 from fastapi import FastAPI, Depends, HTTPException, status, Security, Request, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm, APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from database import Base, engine, get_db
-import models, schemas, crud, auth, os
 from sqlalchemy.orm import Session
 from datetime import timedelta
-import shutil
 from pathlib import Path
-from fastapi.staticfiles import StaticFiles
+
 
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
@@ -40,9 +40,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = Path("static/uploads")
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 #health check
 @app.get("/")
@@ -222,14 +222,17 @@ async def complete_quest(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    file_name = f"{current_user.id}_{quest_id}_{file.filename}"
-    file_path = UPLOAD_DIR / file_name
+    extension = os.path.splitext(file.filename)[1]
+    safe_filename = f"{current_user.id}_{quest_id}_{uuid.uuid4()}{extension}"
+    file_path = UPLOAD_DIR / safe_filename
+    contents = await file.read()
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    db_path = str(file_path)
+        buffer.write(contents)
+    db_path = f"/static/{safe_filename}"
     result, message = crud.submit_quest_completion(db, current_user.id, quest_id, db_path)
     if not result:
+        if os.path.exists(file_path):
+            os.remove(file_path)
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
 
@@ -256,14 +259,13 @@ def review_submission(
     log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="提出が見つかりません")
-        
-    if not crud.is_group_host(db, current_user.id, log.group_id):
+    if not crud.is_group_host(db, current_user.id, log.group_id) and not crud.is_group_owner(db, current_user.id, log.group_id):
         raise HTTPException(status_code=403, detail="権限がありません")
-    result, message = crud.review_quest_submission(db, log_id, review.approved)
-    if not result:
+    success, message = crud.review_quest_submission(db, log_id, review.approved)
+    if not success:
         raise HTTPException(status_code=400, detail=message)
-        
-    return {"message": message, "status": result.status}
+    status_str = "approved" if review.approved else "rejected"
+    return {"message": message, "status": status_str}
 
 #delete quest
 @app.delete("/quests/{quest_id}")
@@ -327,3 +329,39 @@ def read_user_joined_groups(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return crud.get_user_joined_groups(db, user_id)
+
+#leave group
+@app.post("/groups/{group_id}/leave")
+def leave_group(
+    group_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    success = crud.leave_group(db, group_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Not a member of this group")
+    
+    return {"message": "Successfully left the group"}
+
+#delete group
+@app.delete("/groups/{group_id}")
+def delete_group_endpoint(
+    group_id: int, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    if not crud.is_group_owner(db, current_user.id, group_id):
+        raise HTTPException(status_code=403, detail="オーナーのみ削除可能です")
+    
+    success = crud.delete_group(db, group_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="グループが見つかりません")
+    return {"message": "グループを削除しました"}
+
+@app.get("/groups/{group_id}/my_submissions", response_model=list[schemas.QuestCompletionLog])
+def read_my_submissions(
+    group_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    return crud.get_my_quest_logs(db, group_id, current_user.id)

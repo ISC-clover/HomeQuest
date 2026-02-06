@@ -1,10 +1,10 @@
-from sqlalchemy.orm import Session
-import models, schemas, auth, secrets, os, models
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from sqlalchemy import desc
+import models, schemas, auth, secrets, os
+from sqlalchemy.orm import Session, joinedload
+from datetime import datetime, timedelta
+from pathlib import Path
 
 PASSWORD_PEPPER = os.getenv("PASSWORD_PEPPER", "D3fqv1t_53c2e7_pe9qe2")
+UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = auth.get_password_hash(user.password)
@@ -67,35 +67,33 @@ def get_group_detail(db: Session, group_id: int):
     group = db.query(models.Group).filter(models.Group.id == group_id).first()
     if not group:
         return None
-    user_groups = (
-        db.query(models.UserGroup, models.User)
-        .join(models.User, models.User.id == models.UserGroup.user_id)
-        .filter(models.UserGroup.group_id == group_id)
-        .all()
-    )
-    members_list = []
-    hosts_list = []
-    for ug, user in user_groups:
-        member_data = {
-            "id": user.id,
-            "user_name": user.user_name,
-            "points": ug.points,
-            "is_host": ug.is_host
+
+    users_data = []
+    hosts_data = []
+    
+    for member in group.members:
+        u_info = {
+            "id": member.user.id,
+            "user_name": member.user.user_name,
+            "points": member.points,
+            "is_host": member.is_host
         }
-        members_list.append(member_data)
-        if ug.is_host:
-            host_data = {
-                "id": user.id,
-                "user_name": user.user_name
-            }
-            hosts_list.append(host_data)
+        users_data.append(u_info)
+        
+        if member.is_host or member.user.id == group.owner_user_id:
+            hosts_data.append({
+                "id": member.user.id,
+                "user_name": member.user.user_name
+            })
+
     return {
         "id": group.id,
         "group_name": group.group_name,
         "owner_user_id": group.owner_user_id,
-        "hosts": hosts_list,
-        "users": members_list,
-        "shops": group.shops,
+        "invite_code": group.invite_code,
+        "users": users_data,
+        "hosts": hosts_data,
+        "shops": [shop for shop in group.shops if shop.is_active],
         "quests": group.quests
     }
     
@@ -128,7 +126,7 @@ def create_shop_item(db: Session, shop_item: schemas.ShopCreate, group_id: int):
     return db_item
 
 def purchase_item(db: Session, user_id: int, item_id: int):
-    shop_item = db.query(models.Shop).filter(models.Shop.id == item_id).first()
+    shop_item = db.query(models.Shop).filter(models.Shop.id == item_id,models.Shop.is_active == True).first()
     if not shop_item:
         return None, "Item not found"
     if shop_item.limit_per_user is not None:
@@ -164,58 +162,88 @@ def get_user_purchases(db: Session, user_id: int):
         models.PurchaseHistory.user_id == user_id
     ).order_by(models.PurchaseHistory.purchased_at.desc()).all()
     
-def submit_quest_completion(db: Session, user_id: int, quest_id: int, image_path: str):
-    quest = get_quest(db, quest_id)
+def submit_quest_completion(db: Session, user_id: int, quest_id: int, proof_path: str):
+    quest = db.query(models.Quest).filter(models.Quest.id == quest_id).first()
     if not quest:
-        return None, "Quest not found"
-    existing_log = db.query(models.QuestCompletionLog).filter(
-        models.QuestCompletionLog.user_id == user_id,
+        return False, "Quest not found"
+    existing = db.query(models.QuestCompletionLog).filter(
         models.QuestCompletionLog.quest_id == quest_id,
-        models.QuestCompletionLog.status == "pending"
+        models.QuestCompletionLog.user_id == user_id,
+        models.QuestCompletionLog.status.in_(["pending", "approved"])
     ).first()
-    if existing_log:
-        return None, "現在、承認待ちの提出があります。"
+    if existing:
+        return False, "Already submitted or approved"
     db_log = models.QuestCompletionLog(
         user_id=user_id,
         quest_id=quest_id,
         group_id=quest.group_id,
         status="pending",
-        proof_image_path=image_path
+        proof_image_path=proof_path,
+        completed_at=datetime.now()
     )
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
-    return db_log, "クエストを提出しました！ホストの承認をお待ちください。"
+    return True, "Submission received"
 
 def get_pending_submissions(db: Session, group_id: int):
-    return db.query(models.QuestCompletionLog).filter(
+    logs = db.query(models.QuestCompletionLog).options(
+        joinedload(models.QuestCompletionLog.user),
+        joinedload(models.QuestCompletionLog.quest)
+    ).filter(
         models.QuestCompletionLog.group_id == group_id,
         models.QuestCompletionLog.status == "pending"
     ).all()
+    results = []
+    for log in logs:
+        item = schemas.QuestCompletionLog.model_validate(log)
+        if log.user:
+            item.user_name = log.user.user_name
+        if log.quest:
+            item.quest_title = log.quest.quest_name
+        results.append(item)
+    return results
 
-def review_quest_submission(db: Session, log_id: int, is_approved: bool):
-    log = db.query(models.QuestCompletionLog).filter(models.QuestCompletionLog.id == log_id).first()
+def review_quest_submission(db: Session, log_id: int, approved: bool):
+    log = (
+        db.query(models.QuestCompletionLog)
+        .options(joinedload(models.QuestCompletionLog.quest))
+        .filter(models.QuestCompletionLog.id == log_id)
+        .first()
+    )
     if not log:
-        return None, "提出データが見つかりません"
-    if log.status != "pending":
-        return None, "このクエストは既に処理されています"
-    if is_approved:
+        return False, "Submission not found"
+    if approved:
         log.status = "approved"
-        quest = get_quest(db, log.quest_id)
-        user_group = db.query(models.UserGroup).filter(
-            models.UserGroup.user_id == log.user_id,
-            models.UserGroup.group_id == log.group_id
-        ).first()
-        if user_group and quest:
-            user_group.points += quest.points
-        message = f"承認しました！ユーザーに {quest.points} ポイント付与されました。"
+        user_group = (
+            db.query(models.UserGroup)
+            .filter(
+                models.UserGroup.user_id == log.user_id,
+                models.UserGroup.group_id == log.group_id
+            )
+            .first()
+        )
+        if user_group and log.quest and hasattr(user_group, "points"):
+            user_group.points = (user_group.points or 0) + log.quest.reward_points
     else:
         log.status = "rejected"
-        message = "クエストを却下しました。"
+    if log.proof_image_path:
+        try:
+            filename = Path(log.proof_image_path).name
+            image_path = UPLOAD_DIR / filename
+            if image_path.exists():
+                image_path.unlink()
+            log.proof_image_path = None
+        except Exception as e:
+            print(f"[WARN] Failed to delete image: {e}")
     db.commit()
     db.refresh(log)
-    return log, message
-
+    return True, "Reviewed successfully"
+def get_my_quest_logs(db: Session, group_id: int, user_id: int):
+    return db.query(models.QuestCompletionLog).filter(
+        models.QuestCompletionLog.group_id == group_id,
+        models.QuestCompletionLog.user_id == user_id
+    ).all()
 def get_group_purchase_history(db: Session, group_id: int):
     results = db.query(models.PurchaseHistory, models.User).join(models.User).filter(
         models.PurchaseHistory.group_id == group_id
@@ -232,9 +260,9 @@ def get_group_purchase_history(db: Session, group_id: int):
     return logs
 
 def get_group_quest_history(db: Session, group_id: int):
-    results = db.query(models.QuestCompletion, models.User, models.Quest).join(models.User).join(models.Quest).filter(
-        models.QuestCompletion.group_id == group_id
-    ).order_by(models.QuestCompletion.completed_at.desc()).all()
+    results = db.query(models.QuestCompletionLog, models.User, models.Quest).join(models.User).join(models.Quest).filter(
+        models.QuestCompletionLog.group_id == group_id
+    ).order_by(models.QuestCompletionLog.completed_at.desc()).all()
     logs = []
     for comp, user, quest in results:
         logs.append({
@@ -313,12 +341,15 @@ def delete_quest(db: Session, quest_id: int):
     return False
 
 def get_shop_item(db: Session, item_id: int):
-    return db.query(models.Shop).filter(models.Shop.id == item_id).first()
+    return db.query(models.Shop).filter(
+        models.Shop.id == item_id,
+        models.Shop.is_active == True
+    ).first()
 
 def delete_shop_item(db: Session, item_id: int):
     item = get_shop_item(db, item_id)
     if item:
-        db.delete(item)
+        item.is_active = False
         db.commit()
         return True
     return False
@@ -357,3 +388,22 @@ def get_user_joined_groups(db: Session, user_id: int):
         .filter(models.UserGroup.user_id == user_id)
         .all()
     )
+    
+def leave_group(db: Session, group_id: int, user_id: int) -> bool:
+    link = db.query(models.UserGroup).filter(
+        models.UserGroup.group_id == group_id,
+        models.UserGroup.user_id == user_id
+    ).first()
+    if link:
+        db.delete(link)
+        db.commit()
+        return True
+    return False
+
+def delete_group(db: Session, group_id: int) -> bool:
+    group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if group:
+        db.delete(group)
+        db.commit()
+        return True
+    return False
