@@ -365,3 +365,20 @@ def read_my_submissions(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return crud.get_my_quest_logs(db, group_id, current_user.id)
+    # --- プレイヤー自身のマイページ用：全購入履歴（全グループ分） ---
+@app.get("/users/me/history/purchases/all", response_model=list[schemas.PurchaseLog])
+def read_my_all_purchase_history(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # crud.pyに元からある get_user_purchases を使います
+    return crud.get_user_purchases(db, current_user.id)
+
+# --- プレイヤー自身のマイページ用：全クエスト履歴（全グループ分） ---
+@app.get("/users/me/history/quests/all", response_model=list[schemas.QuestCompletionLog])
+def read_my_all_quest_history(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # さっき crud.py に追加した関数を呼びます
+    return crud.get_user_quest_history_all(db, current_user.id)

@@ -407,3 +407,11 @@ def delete_group(db: Session, group_id: int) -> bool:
         db.commit()
         return True
     return False
+    # プレイヤーが自分の「すべてのグループ」でのクエスト履歴を確認する用
+def get_user_quest_history_all(db: Session, user_id: int):
+    return db.query(models.QuestCompletionLog).options(
+        joinedload(models.QuestCompletionLog.quest),
+        joinedload(models.QuestCompletionLog.group)
+    ).filter(
+        models.QuestCompletionLog.user_id == user_id
+    ).order_by(models.QuestCompletionLog.completed_at.desc()).all()
