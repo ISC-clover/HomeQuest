@@ -1,6 +1,27 @@
 import streamlit as st
 
 def page_home():
+    # 背景画像を設定（画像ファイルをワークスペースの uploads/home_bg.png に置いてください）
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-image: url('/frontend/static/images/background.png');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        /* コンテンツを読みやすくするための半透明のオーバーレイ */
+        .stApp > .main {
+            background: rgba(255,255,255,0.85);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     st.title("🏰 ホーム")
     
     # ユーザー情報の取得
