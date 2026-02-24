@@ -63,7 +63,11 @@ def page_groups():
     with tab1:
         st.subheader("あなたの所属グループ")
         my_groups = api.get_my_groups(me['id'])
-        st.write(type(my_groups), my_groups)
+        # 画面上に型情報やドキュメントが出てしまうため詳細なデバッグ出力は表示しない
+        try:
+            st.write(f"取得グループ数: {len(my_groups)}")
+        except Exception:
+            st.write("取得結果を確認してください")
         # API のエラーや想定外の型が返ってきた場合に備えた防御処理
         if isinstance(my_groups, dict) and "error" in my_groups:
             st.error(f"API error: {my_groups['error']}")
