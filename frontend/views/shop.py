@@ -4,6 +4,10 @@ import streamlit as st
 def page_shop():
     st.title("🛍️ ショップ")
     
+    # --- 🌟 アプリの記憶領域（買った回数を強制的にメモする場所）を準備 ---
+    if "local_bought" not in st.session_state:
+        st.session_state.local_bought = {}
+    
     api = st.session_state.api
     me = api.get_me()
     
@@ -19,7 +23,7 @@ def page_shop():
             st.rerun()
         return
 
-    # --- 自分の全購入履歴を取得（上限チェック用） ---
+    # --- 自分の全購入履歴を取得 ---
     all_my_purchases = []
     try:
         res_my = api.get_my_purchases()
@@ -63,9 +67,8 @@ def page_shop():
             """, unsafe_allow_html=True)
 
             items = group.get("shops", [])
-            group_item_ids = {item['id'] for item in items}
             
-            # --- グループ全体の履歴を取得（みんなの履歴用） ---
+            # --- グループ全体の履歴を取得 ---
             group_history = []
             try:
                 res_gh = api.get_purchase_history(group_id)
@@ -79,22 +82,19 @@ def page_shop():
             except Exception:
                 pass
 
-            # --- 購入回数をカウント ---
-            purchase_counts = {}
+            # --- 購入回数をサーバーの履歴からカウント ---
+            purchase_counts_by_name = {}
+            my_h = []
             if group_history and not is_host:
-                for h in group_history:
-                    if h.get("user_id") == me["id"]:
-                        item_id = h.get('shop_id') or h.get('item_id')
-                        if item_id:
-                            purchase_counts[item_id] = purchase_counts.get(item_id, 0) + 1
+                my_h = [h for h in group_history if h.get("user_id") == me["id"]]
             else:
-                for p in all_my_purchases:
-                    p_item_id = p.get('shop_id') or p.get('item_id')
-                    if p.get("group_id") == group_id or p_item_id in group_item_ids:
-                        if p_item_id: 
-                            purchase_counts[p_item_id] = purchase_counts.get(p_item_id, 0) + 1
+                my_h = all_my_purchases
 
-            # 🌟 タブをスッキリ整理！（交換承認や、もちものを削除）
+            for h in my_h:
+                name = h.get('item_name')
+                if name:
+                    purchase_counts_by_name[name] = purchase_counts_by_name.get(name, 0) + 1
+
             if is_host:
                 sub_tab_titles = ["🛒 お買い物", "🆕 商品を入荷", "🛠️ 管理", "📜 みんなの履歴"]
             else:
@@ -115,9 +115,13 @@ def page_shop():
                                 st.caption(item.get('description') or "説明なし")
                                 
                                 limit = item.get('limit_per_user')
-                                bought_count = purchase_counts.get(item['id'], 0)
-                                is_limit_reached = False
                                 
+                                # 🌟【重要】サーバーから取ってきた回数と、アプリが強制メモした回数を比べて、大きい方を採用！
+                                backend_count = purchase_counts_by_name.get(item['item_name'], 0)
+                                local_count = st.session_state.local_bought.get(item['id'], 0)
+                                bought_count = max(backend_count, local_count)
+                                
+                                is_limit_reached = False
                                 limit_text = ""
                                 if limit is not None and limit > 0:
                                     limit_text = f" (残り {limit - bought_count} 回)"
@@ -143,8 +147,11 @@ def page_shop():
                                     res = api.purchase_item(item['id'])
                                     if "error" in res: st.error(res["error"])
                                     else:
+                                        # 🌟【重要】買った瞬間に、アプリのメモに「購入回数+1」を強制的に書き込む！
+                                        st.session_state.local_bought[item['id']] = bought_count + 1
+                                        
                                         st.balloons()
-                                        st.success(f"「{item['item_name']}」を購入！親に見せてね！")
+                                        st.success(f"「{item['item_name']}」を購入！ホストに見せてね！")
                                         time.sleep(1.5); st.rerun()
 
             if is_host:
