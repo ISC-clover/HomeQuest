@@ -63,6 +63,7 @@ def page_groups():
     with tab1:
         st.subheader("あなたの所属グループ")
         my_groups = api.get_my_groups(me['id'])
+        st.write(type(my_groups), my_groups)
         
         if not my_groups:
             st.info("まだグループに参加していません。")
