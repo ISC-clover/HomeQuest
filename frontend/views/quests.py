@@ -150,12 +150,28 @@ def page_quests():
 
         with tabs[2]:
             st.subheader("クエスト作成")
-            tgid = st.selectbox("グループ", list(host_groups.keys()), format_func=lambda x: host_groups[x])
-            name = st.text_input("クエスト名")
-            rew = st.number_input("報酬", min_value=1, value=100)
-            if st.button("作成する", type="primary"):
-                api.create_quest(tgid, name, "", rew, dt.now().isoformat(), (dt.now()+datetime.timedelta(days=7)).isoformat())
-                st.success("作成完了！"); time.sleep(1); st.rerun()
+            
+            # 🌟【ここが追加ポイント！】分身の術（Key-busting）の準備
+            if "quest_form_key" not in st.session_state:
+                st.session_state.quest_form_key = 0
+            qfk = st.session_state.quest_form_key
+
+            tgid = st.selectbox("グループ", list(host_groups.keys()), format_func=lambda x: host_groups[x], key=f"tgid_{qfk}")
+            name = st.text_input("クエスト名", key=f"q_name_{qfk}")
+            rew = st.number_input("報酬", min_value=1, value=100, key=f"q_rew_{qfk}")
+            
+            if st.button("作成する", key=f"create_btn_{qfk}", type="primary"):
+                if name.strip(): # 名前が空っぽの時は作れないようにガード！
+                    api.create_quest(tgid, name, "", rew, dt.now().isoformat(), (dt.now()+datetime.timedelta(days=7)).isoformat())
+                    st.success("作成完了！")
+                    
+                    # 🌟 次に画面を描画するときに、鍵(Key)の番号を増やして新しくする！
+                    st.session_state.quest_form_key += 1
+                    
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.warning("⚠️ クエスト名を入力してください！")
 
         with tabs[3]:
             st.subheader("クエスト管理")

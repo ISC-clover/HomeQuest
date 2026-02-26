@@ -4,7 +4,7 @@ import streamlit as st
 def page_shop():
     st.title("🛍️ ショップ")
     
-    # --- 🌟 アプリの記憶領域（買った回数を強制的にメモする場所）を準備 ---
+    # --- 🌟 アプリの記憶領域 ---
     if "local_bought" not in st.session_state:
         st.session_state.local_bought = {}
     
@@ -116,7 +116,6 @@ def page_shop():
                                 
                                 limit = item.get('limit_per_user')
                                 
-                                # 🌟【重要】サーバーから取ってきた回数と、アプリが強制メモした回数を比べて、大きい方を採用！
                                 backend_count = purchase_counts_by_name.get(item['item_name'], 0)
                                 local_count = st.session_state.local_bought.get(item['id'], 0)
                                 bought_count = max(backend_count, local_count)
@@ -147,9 +146,7 @@ def page_shop():
                                     res = api.purchase_item(item['id'])
                                     if "error" in res: st.error(res["error"])
                                     else:
-                                        # 🌟【重要】買った瞬間に、アプリのメモに「購入回数+1」を強制的に書き込む！
                                         st.session_state.local_bought[item['id']] = bought_count + 1
-                                        
                                         st.balloons()
                                         st.success(f"「{item['item_name']}」を購入！ホストに見せてね！")
                                         time.sleep(1.5); st.rerun()
@@ -158,20 +155,33 @@ def page_shop():
                 # --- ホスト専用タブ ---
                 with sub_tabs[1]:
                     st.subheader("新しい商品を入荷する")
-                    c1, c2 = st.columns([3, 1])
-                    new_name = c1.text_input("商品名", key=f"new_name_{group_id}")
-                    new_cost = c2.number_input("価格 (pt)", min_value=1, value=100, key=f"new_cost_{group_id}")
-                    new_desc = st.text_area("説明文", key=f"new_desc_{group_id}")
                     
-                    is_limited = st.checkbox("1人あたりの購入回数を制限する", key=f"limit_check_{group_id}")
+                    # 🌟【ここが最強の解決策】入力欄の「鍵(Key)」に番号をつける！
+                    if f"form_key_{group_id}" not in st.session_state:
+                        st.session_state[f"form_key_{group_id}"] = 0
+                    fk = st.session_state[f"form_key_{group_id}"]
+
+                    c1, c2 = st.columns([3, 1])
+                    # すべての部品の鍵(Key)の最後に「_{fk}」をつけて別物として扱う
+                    new_name = c1.text_input("商品名", key=f"new_name_{group_id}_{fk}")
+                    new_cost = c2.number_input("価格 (pt)", min_value=1, value=100, key=f"new_cost_{group_id}_{fk}")
+                    new_desc = st.text_area("説明文", key=f"new_desc_{group_id}_{fk}")
+                    
+                    is_limited = st.checkbox("1人あたりの購入回数を制限する", key=f"limit_check_{group_id}_{fk}")
                     limit_val = None
                     if is_limited:
-                        limit_val = st.number_input("上限回数", min_value=1, value=1, step=1, key=f"limit_val_{group_id}")
+                        limit_val = st.number_input("上限回数", min_value=1, value=1, step=1, key=f"limit_val_{group_id}_{fk}")
 
-                    if st.button("入荷する", key=f"add_btn_{group_id}", type="primary"):
+                    if st.button("入荷する", key=f"add_btn_{group_id}_{fk}", type="primary"):
                         if new_name:
                             api.add_shop_item(group_id, new_name, new_cost, new_desc, limit_per_user=limit_val)
-                            st.success("入荷しました！"); time.sleep(1); st.rerun()
+                            st.success("入荷しました！")
+                            
+                            # 🌟 次に画面を描画するときに、鍵(Key)の番号を増やして「新しい入力欄」にする！
+                            st.session_state[f"form_key_{group_id}"] += 1
+                            
+                            time.sleep(1)
+                            st.rerun()
 
                 with sub_tabs[2]:
                     st.subheader("在庫管理")
