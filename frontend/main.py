@@ -27,12 +27,25 @@ def page_login_signup():
     with tab1:
         id_input = st.text_input("ユーザーID", key="login_id")
         pass_input = st.text_input("パスワード", type="password", key="login_pass")
+        
         if st.button("ログイン", type="primary"):
-            if st.session_state.api.login(id_input, pass_input):
+            # 修正: True/False ではなく、レスポンスデータ（辞書）を受け取るように変更
+            login_data = st.session_state.api.login(id_input, pass_input)
+            
+            if login_data:
                 st.session_state.is_logged_in = True
+                
+                # --- 【重要】初回ログイン判定によるページ振り分け ---
+                # バックエンドから返ってきた is_first_login を参照します
+                if login_data.get("is_first_login"):
+                    st.session_state.current_page = "groups"  # 2枚目の画像（グループ作成）へ
+                else:
+                    st.session_state.current_page = "home"    # 1枚目の画像（ホーム）へ
+                
                 st.rerun()
             else:
-                st.error("ログイン失敗")
+                st.error("ログイン失敗：IDまたはパスワードが違います")
+
     with tab2:
         new_name = st.text_input("ユーザー名")
         new_pass = st.text_input("パスワード", type="password")
@@ -48,7 +61,8 @@ def main():
     if not st.session_state.is_logged_in:
         page_login_signup()
         return
-    # ルーティング分岐を追加
+
+    # ルーティング分岐
     if st.session_state.current_page == "home":
         home.page_home()
     elif st.session_state.current_page == "groups":
