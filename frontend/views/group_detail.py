@@ -51,7 +51,9 @@ def page_group_detail():
         st.subheader("🛠️ 管理メニュー")
         
         # タブで機能を整理
-        manage_tabs = ["招待コード"]
+        # 修正前：manage_tabs = ["招待コード"]
+        # 修正後：
+        manage_tabs = ["招待コード", "🛒 購入履歴"] # 購入履歴を追加
         if is_owner:
             manage_tabs.extend(["権限管理", "グループ設定"])
             
@@ -60,6 +62,39 @@ def page_group_detail():
         # -- A. 招待コード --
         with tabs[0]:
             current_code = group.get("invite_code")
+
+            # -- B. 購入履歴（ホスト・オーナー用）--
+        with tabs[1]:
+            st.markdown("#### 🛒 メンバーの購入履歴")
+            # APIから履歴を取得（バックエンドで作った GET /groups/{group_id}/history/purchases を叩く想定）
+            history_res = api.get_purchase_history(group_id)
+            
+            if not history_res or "error" in history_res:
+                st.info("まだ購入履歴がありません。")
+            else:
+                # テーブル形式でオシャレに表示
+                import pandas as pd
+                df = pd.DataFrame(history_res)
+                
+                # 表示用にカラム名を日本語に整える
+                df = df.rename(columns={
+                    "user_name": "購入者",
+                    "item_name": "アイテム名",
+                    "cost": "消費ポイント",
+                    "purchased_at": "日時"
+                })
+                
+                # 日時を見やすく整形（もし文字列なら）
+                st.dataframe(df[["購入者", "アイテム名", "消費ポイント", "日時"]], use_container_width=True)
+                
+                # UX向上：CSVダウンロード機能
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 履歴をCSVでダウンロード",
+                    data=csv,
+                    file_name=f"group_{group_id}_purchase_history.csv",
+                    mime="text/csv",
+                )
 
             # 1. すでにコードがある場合
             if current_code:
