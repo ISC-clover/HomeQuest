@@ -63,6 +63,21 @@ def page_groups():
     with tab1:
         st.subheader("あなたの所属グループ")
         my_groups = api.get_my_groups(me['id'])
+        # 画面上に型情報やドキュメントが出てしまうため詳細なデバッグ出力は表示しない
+        try:
+            st.write(f"取得グループ数: {len(my_groups)}")
+        except Exception:
+            st.write("取得結果を確認してください")
+        # API のエラーや想定外の型が返ってきた場合に備えた防御処理
+        if isinstance(my_groups, dict) and "error" in my_groups:
+            st.error(f"API error: {my_groups['error']}")
+            return
+        if isinstance(my_groups, str):
+            st.error(f"API returned unexpected string: {my_groups}")
+            return
+        if not isinstance(my_groups, list):
+            st.error(f"Unexpected response type: {type(my_groups)}")
+            return
         
         if not my_groups:
             st.info("まだグループに参加していません。")

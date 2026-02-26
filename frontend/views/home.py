@@ -1,6 +1,35 @@
 import streamlit as st
+import os
+import base64
 
 def page_home():
+    # 背景画像を設定（画像をBase64で埋め込み、配布構成に依存しないようにする）
+    img_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'background.png'))
+    if os.path.exists(img_path):
+        with open(img_path, 'rb') as f:
+            img_b64 = base64.b64encode(f.read()).decode()
+        img_url = f"data:image/png;base64,{img_b64}"
+    else:
+        # フォールバック（ファイルが見つからなければ通常のパスを指定）
+        img_url = '/frontend/static/images/background.png'
+
+    st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url('{img_url}');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        /* コンテンツを読みやすくするための半透明のオーバーレイ */
+        .stApp > .main {{
+            background: rgba(255,255,255,0.85);
+            padding: 1rem;
+            border-radius: 8px;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
+
     st.title("🏰 ホーム")
     
     # ユーザー情報の取得
