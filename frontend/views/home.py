@@ -17,17 +17,17 @@ def page_home():
         <style>
         .stApp {{
             background-image: url('{img_url}');
-            /* 画像全体を見せる（余白が出る場合あり） */
-            background-size: contain;
+            /* 少し引いて表示かつ右寄せにして余白を埋めやすくする */
+            background-size: 90% auto;
             background-repeat: no-repeat;
-            background-position: center top;
+            /* 65% にすることで画像をやや右へ寄せる（値は調整可能） */
+            background-position: 100% top;
             background-attachment: fixed;
             background-color: #f8f8f8;
-            min-height: 100vh;
         }}
-        /* コンテンツを読みやすくするための半透明のオーバーレイ（薄め） */
+        /* コンテンツを読みやすくするための半透明のオーバーレイ */
         .stApp > .main {{
-            background: rgba(255,255,255,0.55);
+            background: rgba(255,255,255,0.85);
             padding: 1rem;
             border-radius: 8px;
         }}
