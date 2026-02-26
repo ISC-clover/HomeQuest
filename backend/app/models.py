@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Text, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -12,6 +12,8 @@ class User(Base):
     
     groups = relationship("UserGroup", back_populates="user")
     quest_logs = relationship("QuestCompletionLog", back_populates="user")
+    # 追加: ユーザーのマイページで購入履歴を表示するために必要
+    purchase_history = relationship("PurchaseHistory", back_populates="user")
 
 class Group(Base):
     __tablename__ = "groups"
@@ -25,6 +27,8 @@ class Group(Base):
     shops = relationship("Shop", back_populates="group")
     quests = relationship("Quest", back_populates="group")
     quest_logs = relationship("QuestCompletionLog", back_populates="group")
+    # 追加: ホストがグループ側から購入履歴を確認するために必要
+    purchase_history = relationship("PurchaseHistory", back_populates="group")
 
 class UserGroup(Base):
     __tablename__ = "user_groups"
@@ -50,6 +54,8 @@ class Shop(Base):
     is_active = Column(Boolean, default=True)
     
     group = relationship("Group", back_populates="shops")
+    # 追加: アイテム側からも履歴を追えるように
+    purchase_history = relationship("PurchaseHistory", back_populates="item")
 
 class PurchaseHistory(Base):
     __tablename__ = "purchase_history"
@@ -58,9 +64,14 @@ class PurchaseHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
     shop_item_id = Column(Integer, ForeignKey("shops.id"))
-    item_name = Column(String)
+    item_name = Column(String) # 商品名が削除されても履歴が残るように名前も保存（ナイス判断です！）
     cost = Column(Integer)
     purchased_at = Column(DateTime, default=datetime.now)
+
+    # リレーションの追加
+    user = relationship("User", back_populates="purchase_history")
+    group = relationship("Group", back_populates="purchase_history")
+    item = relationship("Shop", back_populates="purchase_history")
 
 class Quest(Base):
     __tablename__ = "quests"
@@ -84,10 +95,11 @@ class QuestCompletionLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     quest_id = Column(Integer, ForeignKey("quests.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
-    status = Column(String, default="pending")
+    status = Column(String, default="pending") # pending, approved, rejected など
     proof_image_path = Column(String, nullable=True)
     completed_at = Column(DateTime, default=datetime.now)
     
     user = relationship("User", back_populates="quest_logs")
     quest = relationship("Quest", back_populates="logs")
     group = relationship("Group", back_populates="quest_logs")
+    

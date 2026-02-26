@@ -225,3 +225,14 @@ class HomeQuestAPI:
             headers=self._get_headers()
         )
         return self._handle_response(res)
+        # --- 追加：全グループ横断の履歴取得（マイページ用） ---
+
+    def get_my_purchase_history_all(self):
+        # GET /users/me/history/purchases/all を叩く
+        res = requests.get(f"{self.api_url}/users/me/history/purchases/all", headers=self._get_headers())
+        return self._handle_response(res)
+
+    def get_my_quest_history_all(self):
+        # GET /users/me/history/quests/all を叩く
+        res = requests.get(f"{self.api_url}/users/me/history/quests/all", headers=self._get_headers())
+        return self._handle_response(res)
