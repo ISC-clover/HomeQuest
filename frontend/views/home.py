@@ -17,9 +17,13 @@ def page_home():
         <style>
         .stApp {{
             background-image: url('{img_url}');
-            background-size: cover;
-            background-position: center;
+            /* 少し引いて表示かつ右寄せにして余白を埋めやすくする */
+            background-size: 90% auto;
+            background-repeat: no-repeat;
+            /* 65% にすることで画像をやや右へ寄せる（値は調整可能） */
+            background-position: 100% top;
             background-attachment: fixed;
+            background-color: #f8f8f8;
         }}
         /* コンテンツを読みやすくするための半透明のオーバーレイ */
         .stApp > .main {{
