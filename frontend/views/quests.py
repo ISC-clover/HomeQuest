@@ -87,6 +87,15 @@ def page_quests():
                 if (s_time is None or s_time <= now) and (e_time is None or e_time >= now):
                     all_todo.append({"group_name": g["group_name"], "q": q, "gid": g["id"]})
 
+    # --- 🌟 時間をわかりやすく変換する魔法の関数 ---
+    def format_time(iso_str):
+        if not iso_str: return ""
+        try:
+            parsed = dt.fromisoformat(iso_str)
+            return parsed.strftime("%m/%d %H:%M") # 「02/27 15:00」のような形にする
+        except:
+            return str(iso_str)[:16].replace('T', ' ')
+
     # --- タブ[0]: ⚔️ クエストに挑戦 (共通) ---
     with tabs[0]:
         st.subheader("新しいクエスト")
@@ -97,7 +106,20 @@ def page_quests():
                 with st.container(border=True):
                     c1, c2 = st.columns([3, 1])
                     c1.markdown(f"**{q['quest_name']}**")
+                    
+                    # 🌟 ここに追加！詳細説明を表示
+                    desc = q.get("description")
+                    if desc:
+                        c1.caption(f"📝 {desc}")
+                        
+                    # 🌟 ここに追加！期間をわかりやすく表示
+                    start_str = format_time(q.get("start_time"))
+                    end_str = format_time(q.get("end_time"))
+                    
                     c1.caption(f"🏰 {gname} | 💰 {q['reward_points']} pt")
+                    if start_str and end_str:
+                        c1.caption(f"⏳ **期間:** {start_str} 〜 {end_str}")
+                    
                     if c2.button("挑戦する", key=f"btn_q_{q['id']}_{gid}"):
                         st.session_state.report_quest_id = q["id"]
                         st.session_state.selected_group_id = gid
@@ -151,25 +173,53 @@ def page_quests():
         with tabs[2]:
             st.subheader("クエスト作成")
             
-            # 🌟【ここが追加ポイント！】分身の術（Key-busting）の準備
+            # 分身の術（Key-busting）の準備
             if "quest_form_key" not in st.session_state:
                 st.session_state.quest_form_key = 0
             qfk = st.session_state.quest_form_key
 
             tgid = st.selectbox("グループ", list(host_groups.keys()), format_func=lambda x: host_groups[x], key=f"tgid_{qfk}")
             name = st.text_input("クエスト名", key=f"q_name_{qfk}")
-            rew = st.number_input("報酬", min_value=1, value=100, key=f"q_rew_{qfk}")
             
+            # 詳細説明の入力欄
+            desc = st.text_area("詳細説明", key=f"q_desc_{qfk}")
+            
+            rew = st.number_input("報酬 (pt)", min_value=1, value=100, key=f"q_rew_{qfk}")
+            
+            # 開始日時と終了日時の入力欄
+            st.markdown("---")
+            st.markdown("##### ⏳ 期間設定")
+            c_start, c_end = st.columns(2)
+            
+            with c_start:
+                st.write("**開始日時**")
+                start_d = st.date_input("開始日", value=dt.now().date(), key=f"q_sd_{qfk}")
+                start_t = st.time_input("開始時間", value=dt.now().time(), key=f"q_st_{qfk}")
+                
+            with c_end:
+                st.write("**終了日時**")
+                end_d = st.date_input("終了日", value=(dt.now() + datetime.timedelta(days=7)).date(), key=f"q_ed_{qfk}")
+                end_t = st.time_input("終了時間", value=dt.now().time(), key=f"q_et_{qfk}")
+            st.markdown("---")
+
             if st.button("作成する", key=f"create_btn_{qfk}", type="primary"):
-                if name.strip(): # 名前が空っぽの時は作れないようにガード！
-                    api.create_quest(tgid, name, "", rew, dt.now().isoformat(), (dt.now()+datetime.timedelta(days=7)).isoformat())
-                    st.success("作成完了！")
+                if name.strip(): # 名前が入力されているかチェック
+                    # 日付と時間を合体させてISOフォーマットにする
+                    start_dt = dt.combine(start_d, start_t)
+                    end_dt = dt.combine(end_d, end_t)
                     
-                    # 🌟 次に画面を描画するときに、鍵(Key)の番号を増やして新しくする！
-                    st.session_state.quest_form_key += 1
-                    
-                    time.sleep(1)
-                    st.rerun()
+                    # 終了時間が開始時間より前になっていないかチェック
+                    if start_dt >= end_dt:
+                        st.error("⚠️ エラー：終了時間は、開始時間よりも後の日時に設定してね！")
+                    else:
+                        api.create_quest(tgid, name, desc, rew, start_dt.isoformat(), end_dt.isoformat())
+                        st.success("作成完了！")
+                        
+                        # 鍵を増やして次回から空っぽにする
+                        st.session_state.quest_form_key += 1
+                        
+                        time.sleep(1)
+                        st.rerun()
                 else:
                     st.warning("⚠️ クエスト名を入力してください！")
 
