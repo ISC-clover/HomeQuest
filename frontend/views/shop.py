@@ -1,5 +1,6 @@
 import time
 import streamlit as st
+from datetime import datetime as dt
 
 def page_shop():
     st.title("🛍️ ショップ")
@@ -22,6 +23,15 @@ def page_shop():
             st.session_state.current_page = "home"
             st.rerun()
         return
+
+    # --- 🌟 時間をわかりやすく変換する魔法の関数 ---
+    def format_time(iso_str):
+        if not iso_str: return "日時不明"
+        try:
+            parsed = dt.fromisoformat(str(iso_str).replace('Z', '+00:00'))
+            return parsed.strftime("%Y/%m/%d %H:%M") # 「2026/02/27 15:00」の形にする！
+        except:
+            return str(iso_str)[:16].replace('T', ' ')
 
     # --- 自分の全購入履歴を取得 ---
     all_my_purchases = []
@@ -156,13 +166,11 @@ def page_shop():
                 with sub_tabs[1]:
                     st.subheader("新しい商品を入荷する")
                     
-                    # 🌟【ここが最強の解決策】入力欄の「鍵(Key)」に番号をつける！
                     if f"form_key_{group_id}" not in st.session_state:
                         st.session_state[f"form_key_{group_id}"] = 0
                     fk = st.session_state[f"form_key_{group_id}"]
 
                     c1, c2 = st.columns([3, 1])
-                    # すべての部品の鍵(Key)の最後に「_{fk}」をつけて別物として扱う
                     new_name = c1.text_input("商品名", key=f"new_name_{group_id}_{fk}")
                     new_cost = c2.number_input("価格 (pt)", min_value=1, value=100, key=f"new_cost_{group_id}_{fk}")
                     new_desc = st.text_area("説明文", key=f"new_desc_{group_id}_{fk}")
@@ -176,10 +184,7 @@ def page_shop():
                         if new_name:
                             api.add_shop_item(group_id, new_name, new_cost, new_desc, limit_per_user=limit_val)
                             st.success("入荷しました！")
-                            
-                            # 🌟 次に画面を描画するときに、鍵(Key)の番号を増やして「新しい入力欄」にする！
                             st.session_state[f"form_key_{group_id}"] += 1
-                            
                             time.sleep(1)
                             st.rerun()
 
@@ -200,8 +205,14 @@ def page_shop():
                     else:
                         for h in group_history:
                             with st.container(border=True):
-                                st.write(f"👤 **{h.get('user_name', 'メンバー')}** が 🎁 **{h.get('item_name', 'アイテム')}** を購入")
-                                st.caption(f"💰 {h.get('cost_points', '---')} pt | 購入日: {h.get('created_at', '')[:10]}")
+                                # 🌟 ここでいろんなキーの名前から必死に探す！
+                                user_name = h.get('user_name') or h.get('username') or 'メンバー'
+                                item_name = h.get('item_name') or 'アイテム'
+                                pts = h.get('cost_points') or h.get('points') or h.get('price') or h.get('cost') or '---'
+                                raw_date = h.get('created_at') or h.get('purchased_at') or h.get('date') or ''
+                                
+                                st.write(f"👤 **{user_name}** が 🎁 **{item_name}** を購入")
+                                st.caption(f"💰 {pts} pt | 購入日時: {format_time(raw_date)}")
 
             else:
                 # --- 子供専用タブ ---
@@ -213,8 +224,14 @@ def page_shop():
                     else:
                         for h in group_history:
                             with st.container(border=True):
-                                st.write(f"👤 **{h.get('user_name', 'メンバー')}** が 🎁 **{h.get('item_name', 'アイテム')}** を購入")
-                                st.caption(f"💰 {h.get('cost_points', '---')} pt | 購入日: {h.get('created_at', '')[:10]}")
+                                # 🌟 ここも同じく必死に探す！
+                                user_name = h.get('user_name') or h.get('username') or 'メンバー'
+                                item_name = h.get('item_name') or 'アイテム'
+                                pts = h.get('cost_points') or h.get('points') or h.get('price') or h.get('cost') or '---'
+                                raw_date = h.get('created_at') or h.get('purchased_at') or h.get('date') or ''
+                                
+                                st.write(f"👤 **{user_name}** が 🎁 **{item_name}** を購入")
+                                st.caption(f"💰 {pts} pt | 購入日時: {format_time(raw_date)}")
 
     st.divider()
     if st.button("🏠 ホームに戻る", key="back_home"):
