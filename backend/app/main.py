@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 from pathlib import Path
 
-
 API_KEY = os.getenv("APP_API_KEY")
 API_KEY_NAME = "X-App-Key"
 front_url = os.getenv("FRONT_URL", "http://localhost:8501")
@@ -44,22 +43,22 @@ UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
-#health check
+# health check
 @app.get("/")
 def root():
     return {"message": "HomeQuest backend is running!"}
 
-#create user
+# create user
 @app.post("/users", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return crud.create_user(db, user)
 
-#get users
+# get users
 @app.get("/users", response_model=list[schemas.UserWithGroups])
 def read_users(db: Session = Depends(get_db)):
     return crud.get_users(db)
 
-#get purchases log
+# get purchases log
 @app.get("/users/me/purchases", response_model=list[schemas.PurchaseLog])
 def read_own_purchases(
     db: Session = Depends(get_db),
@@ -67,21 +66,29 @@ def read_own_purchases(
 ):
     return crud.get_user_purchases(db=db, user_id=current_user.id)
 
-#create group
+# create group
 @app.post("/groups", response_model=schemas.Group)
 def create_group(
     group: schemas.GroupCreate, 
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    return crud.create_group(db=db, group=group, owner_id=current_user.id)
+    # グループ作成処理
+    new_group = crud.create_group(db=db, group=group, owner_id=current_user.id)
+    
+    # --- 追加: 初回フラグの更新 ---
+    if current_user.is_first_login:
+        current_user.is_first_login = False
+        db.commit()
+    
+    return new_group
 
-#get groups
+# get groups
 @app.get("/groups", response_model=list[schemas.Group])
 def read_groups(db: Session = Depends(get_db)):
     return crud.get_groups(db)
 
-#get group detail
+# get group detail
 @app.get("/groups/{group_id}", response_model=schemas.GroupDetail)
 def read_group_detail(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     group = crud.get_group_detail(db, group_id)
@@ -89,7 +96,7 @@ def read_group_detail(group_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail="Group not found")
     return group
 
-#create invite code
+# create invite code
 @app.post("/groups/{group_id}/invite_code")
 def generate_invite_code(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if not crud.is_group_host(db, current_user.id, group_id):
@@ -99,20 +106,25 @@ def generate_invite_code(group_id: int, db: Session = Depends(get_db), current_u
         raise HTTPException(status_code=404, detail="Group not found")
     return {"invite_code": code}
 
-#join group
+# join group
 @app.post("/groups/join")
 def join_group(request: schemas.JoinGroupRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     group, message = crud.join_group_by_code(db, current_user.id, request.invite_code)
     
     if not group:
         raise HTTPException(status_code=400, detail=message)
+    
+    # --- 追加: 初回フラグの更新 ---
+    if current_user.is_first_login:
+        current_user.is_first_login = False
+        db.commit()
         
     return {
         "message": f"グループ「{group.group_name}」に参加しました！",
         "group_id": group.id
     }
 
-#regen invite code
+# regen invite code
 @app.post("/groups/{group_id}/reset_invite_code")
 def reset_invite_code(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     if not crud.is_group_host(db, current_user.id, group_id):
@@ -122,7 +134,7 @@ def reset_invite_code(group_id: int, db: Session = Depends(get_db), current_user
         raise HTTPException(status_code=404, detail="Group not found")
     return {"new_invite_code": code}
 
-#change member role
+# change member role
 @app.put("/groups/{group_id}/members/{user_id}/role")
 def update_member_role(
     group_id: int, 
@@ -142,7 +154,7 @@ def update_member_role(
     status_text = "ホストに昇格しました" if role_update.is_host else "ホスト権限を剥奪しました"
     return {"message": f"ユーザーID {user_id} を{status_text}"}
 
-#kick member
+# kick member
 @app.delete("/groups/{group_id}/members/{user_id}")
 def remove_member_from_group(
     group_id: int, 
@@ -160,7 +172,7 @@ def remove_member_from_group(
         
     return {"message": f"ユーザーID {user_id} をグループから削除しました"}
 
-#add item
+# add item
 @app.post("/groups/{group_id}/shops", response_model=schemas.Shop)
 def create_shop_item(
     group_id: int, 
@@ -172,7 +184,7 @@ def create_shop_item(
         raise HTTPException(status_code=403, detail="権限がありません。商品追加はホストのみ可能です。")
     return crud.create_shop_item(db=db, shop_item=shop_item, group_id=group_id)
 
-#purchase item
+# purchase item
 @app.post("/shops/{item_id}/purchase")
 def purchase_item(
     item_id: int, 
@@ -189,7 +201,7 @@ def purchase_item(
         "current_points": user_group.points
     }
 
-#delete item
+# delete item
 @app.delete("/shops/{item_id}")
 def delete_shop_item(item_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     item = crud.get_shop_item(db, item_id)
@@ -202,7 +214,7 @@ def delete_shop_item(item_id: int, db: Session = Depends(get_db), current_user: 
     crud.delete_shop_item(db, item_id)
     return {"message": "Item deleted successfully"}
 
-#create quest
+# create quest
 @app.post("/groups/{group_id}/quests", response_model=schemas.Quest)
 def create_quest(
     group_id: int, 
@@ -214,7 +226,7 @@ def create_quest(
         raise HTTPException(status_code=403, detail="権限がありません。クエスト作成はホストのみ可能です。")
     return crud.create_quest(db=db, quest=quest, group_id=group_id)
 
-#post quest complete request
+# post quest complete request
 @app.post("/quests/{quest_id}/complete")
 async def complete_quest(
     quest_id: int, 
@@ -236,7 +248,7 @@ async def complete_quest(
         raise HTTPException(status_code=400, detail=message)
     return {"message": message}
 
-#get quest complete
+# get quest complete
 @app.get("/groups/{group_id}/submissions", response_model=list[schemas.QuestCompletionLog])
 def get_pending_submissions(
     group_id: int,
@@ -248,7 +260,7 @@ def get_pending_submissions(
     
     return crud.get_pending_submissions(db, group_id)
 
-#quest confirm
+# quest confirm
 @app.post("/submissions/{log_id}/review")
 def review_submission(
     log_id: int,
@@ -267,7 +279,7 @@ def review_submission(
     status_str = "approved" if review.approved else "rejected"
     return {"message": message, "status": status_str}
 
-#delete quest
+# delete quest
 @app.delete("/quests/{quest_id}")
 def delete_quest(quest_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     quest = crud.get_quest(db, quest_id)
@@ -278,7 +290,7 @@ def delete_quest(quest_id: int, db: Session = Depends(get_db), current_user: mod
     crud.delete_quest(db, quest_id)
     return {"message": "Quest deleted successfully"}
 
-#generate token
+# generate token
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(), 
@@ -304,24 +316,29 @@ def login_for_access_token(
         data={"sub": str(user.id)},
         expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    # --- 修正: トークンと一緒に初回判定フラグを返す ---
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "is_first_login": user.is_first_login
+    }
 
-#get user info
+# get user info
 @app.get("/users/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
-#get purchase log
+# get purchase log
 @app.get("/groups/{group_id}/history/purchases", response_model=list[schemas.PurchaseLog])
 def read_group_purchase_history(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.get_group_purchase_history(db, group_id)
 
-#get quest log
+# get quest log
 @app.get("/groups/{group_id}/history/quests", response_model=list[schemas.QuestCompletionLog])
 def read_group_quest_history(group_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
     return crud.get_group_quest_history(db, group_id)
 
-#get user in group
+# get user in group
 @app.get("/users/{user_id}/groups", response_model=list[schemas.Group])
 def read_user_joined_groups(
     user_id: int, 
@@ -330,7 +347,7 @@ def read_user_joined_groups(
 ):
     return crud.get_user_joined_groups(db, user_id)
 
-#leave group
+# leave group
 @app.post("/groups/{group_id}/leave")
 def leave_group(
     group_id: int, 
@@ -343,7 +360,7 @@ def leave_group(
     
     return {"message": "Successfully left the group"}
 
-#delete group
+# delete group
 @app.delete("/groups/{group_id}")
 def delete_group_endpoint(
     group_id: int, 
@@ -365,20 +382,17 @@ def read_my_submissions(
     current_user: models.User = Depends(auth.get_current_user)
 ):
     return crud.get_my_quest_logs(db, group_id, current_user.id)
-    # --- プレイヤー自身のマイページ用：全購入履歴（全グループ分） ---
+
 @app.get("/users/me/history/purchases/all", response_model=list[schemas.PurchaseLog])
 def read_my_all_purchase_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # crud.pyに元からある get_user_purchases を使います
     return crud.get_user_purchases(db, current_user.id)
 
-# --- プレイヤー自身のマイページ用：全クエスト履歴（全グループ分） ---
 @app.get("/users/me/history/quests/all", response_model=list[schemas.QuestCompletionLog])
 def read_my_all_quest_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # さっき crud.py に追加した関数を呼びます
     return crud.get_user_quest_history_all(db, current_user.id)
