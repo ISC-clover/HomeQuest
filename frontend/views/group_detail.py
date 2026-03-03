@@ -210,16 +210,22 @@ def page_group_detail():
         with st.container():
             icon = "👤"
             role_text = "メンバー"
+            role_bg = "#444"
+            role_color = "#fff"
             if member['id'] == owner_id:
                 icon = "👑"
                 role_text = "オーナー"
+                role_bg = "#FFD700"
+                role_color = "#000"
             elif member['is_host']:
                 icon = "🛡️"
                 role_text = "ホスト"
+                role_bg = "#555"
+                role_color = "#fff"
             
             st.markdown(f"""
             **{icon} {member['user_name']}** <span style='color:gray; font-size:0.8em;'>(ID: {member['id']})</span>  
-            <span style='background-color:#eee; padding:2px 6px; border-radius:4px; font-size:0.8em;'>{role_text}</span> 
+            <span style='background-color:{role_bg}; color:{role_color}; padding:2px 6px; border-radius:4px; font-size:0.8em;'>{role_text}</span> 
             Points: {member['points']}
             """, unsafe_allow_html=True)
             st.markdown("---")
