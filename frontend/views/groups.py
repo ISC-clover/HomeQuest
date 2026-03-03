@@ -10,6 +10,7 @@ def page_groups():
         st.error("ユーザー情報の取得に失敗しました")
         return
     
+    # --- 内部処理関数（コールバック） ---
     def handle_create_group():
         name = st.session_state.input_create_group_name
         
@@ -22,8 +23,10 @@ def page_groups():
         if "error" in res:
             st.session_state.group_msg = {"type": "error", "text": res["error"]}
         else:
+            # 成功時：メッセージをセットし、ページをホームに切り替える
             st.session_state.group_msg = {"type": "success", "text": f"グループ「{res['group_name']}」を作成しました！"}
             st.session_state.input_create_group_name = ""
+            st.session_state.current_page = "home"  # ← 追加：ホームへ自動遷移
 
     def handle_join_group():
         code = st.session_state.input_join_code
@@ -37,14 +40,16 @@ def page_groups():
         if "error" in res:
             st.session_state.group_msg = {"type": "error", "text": res["error"]}
         else:
+            # 成功時：メッセージをセットし、ページをホームに切り替える
             st.session_state.group_msg = {"type": "success", "text": res.get("message", "参加しました！")}
             st.session_state.input_join_code = ""
+            st.session_state.current_page = "home"  # ← 追加：ホームへ自動遷移
 
     # -------------------------------------------
     # 画面描画（メイン処理）
     # -------------------------------------------
 
-    # もしコールバック関数でセットされたメッセージがあれば、ここで表示する
+    # メッセージ表示ロジック
     if "group_msg" in st.session_state:
         msg = st.session_state.group_msg
         if msg["type"] == "success":
@@ -53,7 +58,6 @@ def page_groups():
             st.error(msg["text"])
         elif msg["type"] == "warning":
             st.warning(msg["text"])
-        # 表示したら消す（次回残らないように）
         del st.session_state.group_msg
 
     # タブの描画
@@ -63,20 +67,23 @@ def page_groups():
     with tab1:
         st.subheader("あなたの所属グループ")
         my_groups = api.get_my_groups(me['id'])
-        # 画面上に型情報やドキュメントが出てしまうため詳細なデバッグ出力は表示しない
+        
         try:
-            st.write(f"取得グループ数: {len(my_groups)}")
+            # APIのレスポンスがリストであることを確認して表示
+            if isinstance(my_groups, list):
+                st.write(f"取得グループ数: {len(my_groups)}")
+            else:
+                st.write("グループ情報を取得中...")
         except Exception:
             st.write("取得結果を確認してください")
-        # API のエラーや想定外の型が返ってきた場合に備えた防御処理
+
+        # エラーハンドリング
         if isinstance(my_groups, dict) and "error" in my_groups:
             st.error(f"API error: {my_groups['error']}")
             return
-        if isinstance(my_groups, str):
-            st.error(f"API returned unexpected string: {my_groups}")
-            return
+        
         if not isinstance(my_groups, list):
-            st.error(f"Unexpected response type: {type(my_groups)}")
+            st.info("グループ情報を読み込めませんでした。")
             return
         
         if not my_groups:
@@ -88,24 +95,20 @@ def page_groups():
                     
                     # 詳細画面へ遷移するボタン
                     if st.button("詳細・管理へ", key=f"btn_detail_{group['id']}"):
-                        st.session_state.selected_group_id = group['id'] # IDを保存
-                        st.session_state.current_page = "group_detail"   # ページ切り替え
+                        st.session_state.selected_group_id = group['id']
+                        st.session_state.current_page = "group_detail"
                         st.rerun()
 
     # 2. 新規作成
     with tab2:
         st.subheader("グループを新規作成")
-        # keyを指定しておくと、コールバック内で st.session_state.input_create_group_name として値を取れます
         st.text_input("グループ名", key="input_create_group_name")
-        
-        # on_click に関数名を渡すのがポイントです（()を付けないこと）
         st.button("作成する", type="primary", on_click=handle_create_group)
 
     # 3. 参加（招待コード）
     with tab3:
         st.subheader("招待コードで参加")
         st.text_input("招待コードを入力", key="input_join_code")
-        
         st.button("参加する", type="primary", on_click=handle_join_group)
     
     st.divider()
