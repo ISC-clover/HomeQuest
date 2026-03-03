@@ -23,6 +23,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(safe_password, hashed_password)
 
 def get_password_hash(password):
+    if not password or password.isspace():
+        raise ValueError("パスワードは空欄では登録できません")
     safe_password = get_salted_hash(password)
     return pwd_context.hash(safe_password)
 
@@ -30,6 +32,8 @@ def get_user_by_id(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
 
 def authenticate_user(db: Session, user_id: int, password: str):
+    if not password or password.isspace():
+        return False
     user = get_user_by_id(db, user_id)
     if not user:
         return False

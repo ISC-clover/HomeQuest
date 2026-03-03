@@ -1,9 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
 
 class UserCreate(BaseModel):
-    user_name: str
-    password: str
+    user_name: str = Field(..., min_length=1, max_length=100)
+    password: str = Field(..., min_length=1, max_length=100)
+    
+    @field_validator('user_name', 'password')
+    @classmethod
+    def validate_not_empty(cls, v):
+        if not v or v.isspace():
+            raise ValueError('空欄は利用できません')
+        return v
 
 class User(BaseModel):    
     id: int
