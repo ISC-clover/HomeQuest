@@ -10,9 +10,12 @@ class User(Base):
     user_name = Column(String, index=True)
     password = Column(String)
     
+    # --- 追加: 初回ログイン判定フラグ ---
+    # 新規作成時は True になり、グループ作成完了時にバックエンドで False に更新します
+    is_first_login = Column(Boolean, default=True) 
+    
     groups = relationship("UserGroup", back_populates="user")
     quest_logs = relationship("QuestCompletionLog", back_populates="user")
-    # 追加: ユーザーのマイページで購入履歴を表示するために必要
     purchase_history = relationship("PurchaseHistory", back_populates="user")
 
 class Group(Base):
@@ -27,7 +30,6 @@ class Group(Base):
     shops = relationship("Shop", back_populates="group")
     quests = relationship("Quest", back_populates="group")
     quest_logs = relationship("QuestCompletionLog", back_populates="group")
-    # 追加: ホストがグループ側から購入履歴を確認するために必要
     purchase_history = relationship("PurchaseHistory", back_populates="group")
 
 class UserGroup(Base):
@@ -54,7 +56,6 @@ class Shop(Base):
     is_active = Column(Boolean, default=True)
     
     group = relationship("Group", back_populates="shops")
-    # 追加: アイテム側からも履歴を追えるように
     purchase_history = relationship("PurchaseHistory", back_populates="item")
 
 class PurchaseHistory(Base):
@@ -64,11 +65,10 @@ class PurchaseHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
     shop_item_id = Column(Integer, ForeignKey("shops.id"))
-    item_name = Column(String) # 商品名が削除されても履歴が残るように名前も保存（ナイス判断です！）
+    item_name = Column(String) 
     cost = Column(Integer)
     purchased_at = Column(DateTime, default=datetime.now)
 
-    # リレーションの追加
     user = relationship("User", back_populates="purchase_history")
     group = relationship("Group", back_populates="purchase_history")
     item = relationship("Shop", back_populates="purchase_history")
@@ -95,11 +95,10 @@ class QuestCompletionLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     quest_id = Column(Integer, ForeignKey("quests.id"))
     group_id = Column(Integer, ForeignKey("groups.id"))
-    status = Column(String, default="pending") # pending, approved, rejected など
+    status = Column(String, default="pending") 
     proof_image_path = Column(String, nullable=True)
     completed_at = Column(DateTime, default=datetime.now)
     
     user = relationship("User", back_populates="quest_logs")
     quest = relationship("Quest", back_populates="logs")
     group = relationship("Group", back_populates="quest_logs")
-    

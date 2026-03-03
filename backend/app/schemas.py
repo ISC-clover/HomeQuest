@@ -15,6 +15,8 @@ class UserCreate(BaseModel):
 class User(BaseModel):    
     id: int
     user_name: str
+    # --- 追加: ユーザー情報取得時に初回フラグを確認できるようにする ---
+    is_first_login: bool 
     
     model_config = {"from_attributes": True}
 
@@ -123,6 +125,8 @@ class MemberRoleUpdate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    # --- 追加: ログインレスポンスに含める ---
+    is_first_login: bool
 
 class TokenData(BaseModel):
     username: str | None = None

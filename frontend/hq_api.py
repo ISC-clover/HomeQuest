@@ -55,10 +55,12 @@ class HomeQuestAPI:
         res = requests.post(f"{self.api_url}/token", data=data, headers=headers)
         
         result = self._handle_response(res)
+        
+        # --- 修正箇所：辞書を丸ごと返すように変更 ---
         if result and "access_token" in result:
             self.token = result["access_token"]
-            return True
-        return False
+            return result  # True の代わりに result(辞書) を返す
+        return None        # False の代わりに None を返す
 
     def get_me(self):
         res = requests.get(f"{self.api_url}/users/me", headers=self._get_headers())
@@ -225,14 +227,11 @@ class HomeQuestAPI:
             headers=self._get_headers()
         )
         return self._handle_response(res)
-        # --- 追加：全グループ横断の履歴取得（マイページ用） ---
 
     def get_my_purchase_history_all(self):
-        # GET /users/me/history/purchases/all を叩く
         res = requests.get(f"{self.api_url}/users/me/history/purchases/all", headers=self._get_headers())
         return self._handle_response(res)
 
     def get_my_quest_history_all(self):
-        # GET /users/me/history/quests/all を叩く
         res = requests.get(f"{self.api_url}/users/me/history/quests/all", headers=self._get_headers())
         return self._handle_response(res)
