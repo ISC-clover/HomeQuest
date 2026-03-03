@@ -172,13 +172,17 @@ def page_shop():
 
                     c1, c2 = st.columns([3, 1])
                     new_name = c1.text_input("商品名", key=f"new_name_{group_id}_{fk}")
-                    new_cost = c2.number_input("価格 (pt)", min_value=1, value=100, key=f"new_cost_{group_id}_{fk}")
+                    
+                    # 🌟 修正ポイント1：価格(pt)に max_value=2147483647 を追加！
+                    new_cost = c2.number_input("価格 (pt)", min_value=1, max_value=2147483647, value=100, key=f"new_cost_{group_id}_{fk}")
+                    
                     new_desc = st.text_area("説明文", key=f"new_desc_{group_id}_{fk}")
                     
                     is_limited = st.checkbox("1人あたりの購入回数を制限する", key=f"limit_check_{group_id}_{fk}")
                     limit_val = None
                     if is_limited:
-                        limit_val = st.number_input("上限回数", min_value=1, value=1, step=1, key=f"limit_val_{group_id}_{fk}")
+                        # 🌟 修正ポイント2：上限回数にも max_value=2147483647 を追加！
+                        limit_val = st.number_input("上限回数", min_value=1, max_value=2147483647, value=1, step=1, key=f"limit_val_{group_id}_{fk}")
 
                     if st.button("入荷する", key=f"add_btn_{group_id}_{fk}", type="primary"):
                         if new_name:

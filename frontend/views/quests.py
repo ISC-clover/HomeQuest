@@ -107,12 +107,12 @@ def page_quests():
                     c1, c2 = st.columns([3, 1])
                     c1.markdown(f"**{q['quest_name']}**")
                     
-                    # 🌟 ここに追加！詳細説明を表示
+                    # 詳細説明を表示
                     desc = q.get("description")
                     if desc:
                         c1.caption(f"📝 {desc}")
                         
-                    # 🌟 ここに追加！期間をわかりやすく表示
+                    # 期間をわかりやすく表示
                     start_str = format_time(q.get("start_time"))
                     end_str = format_time(q.get("end_time"))
                     
@@ -180,11 +180,11 @@ def page_quests():
 
             tgid = st.selectbox("グループ", list(host_groups.keys()), format_func=lambda x: host_groups[x], key=f"tgid_{qfk}")
             name = st.text_input("クエスト名", key=f"q_name_{qfk}")
-            
-            # 詳細説明の入力欄
             desc = st.text_area("詳細説明", key=f"q_desc_{qfk}")
             
-            rew = st.number_input("報酬 (pt)", min_value=1, value=100, key=f"q_rew_{qfk}")
+            # 🌟 変更点：max_value=2147483647 を追加！
+            # これだけで、入力した瞬間にStreamlitが自動で警告を出してくれます！
+            rew = st.number_input("報酬 (pt)", min_value=1, max_value=2147483647, value=100, key=f"q_rew_{qfk}")
             
             # 開始日時と終了日時の入力欄
             st.markdown("---")
@@ -208,6 +208,7 @@ def page_quests():
                     start_dt = dt.combine(start_d, start_t)
                     end_dt = dt.combine(end_d, end_t)
                     
+                    # さっき追加した手動のチェック（if rew > MAX_VALUE:）は削除してスッキリ！
                     # 終了時間が開始時間より前になっていないかチェック
                     if start_dt >= end_dt:
                         st.error("⚠️ エラー：終了時間は、開始時間よりも後の日時に設定してね！")

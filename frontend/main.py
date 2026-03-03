@@ -25,9 +25,9 @@ def page_login_signup():
     tab1, tab2 = st.tabs(["ログイン", "新規登録"])
     
     with tab1:
-        id_input = st.text_input("ユーザーID", key="login_id")
-        pass_input = st.text_input("パスワード", type="password", key="login_pass")
-        
+        id_input = st.text_input("ユーザーID", key="login_id", max_chars=100)
+        pass_input = st.text_input("パスワード", type="password", key="login_pass", max_chars=100)
+
         if st.button("ログイン", type="primary"):
             # 修正: True/False ではなく、レスポンスデータ（辞書）を受け取るように変更
             login_data = st.session_state.api.login(id_input, pass_input)
@@ -47,14 +47,26 @@ def page_login_signup():
                 st.error("ログイン失敗：IDまたはパスワードが違います")
 
     with tab2:
-        new_name = st.text_input("ユーザー名")
-        new_pass = st.text_input("パスワード", type="password")
+        # schemas.pyに合わせて max_chars=100 を追加（100文字以上打ち込めなくする）
+        new_name = st.text_input("ユーザー名", max_chars=100)
+        new_pass = st.text_input("パスワード", type="password", max_chars=100)
+
         if st.button("登録"):
-            res = st.session_state.api.signup(new_name, new_pass)
-            if "error" in res:
-                st.error(res["error"])
+            # 入力値の検証
+            if not new_name or new_name.isspace():
+                st.error("ユーザー名を入力してください")
+            elif len(new_name) > 100: # コピペ等でのすり抜け対策
+                st.error("ユーザー名は100文字以内で入力してください")
+            elif not new_pass or new_pass.isspace():
+                st.error("パスワードを入力してください")
+            elif len(new_pass) > 100:
+                st.error("パスワードは100文字以内で入力してください")
             else:
-                st.success(f"登録完了！あなたのIDは {res['id']} です。忘れずに記録してください。")
+                res = st.session_state.api.signup(new_name, new_pass)
+                if "error" in res:
+                    st.error(res["error"])
+                else:
+                    st.success(f"登録完了！あなたのIDは {res['id']} です。忘れずに記録してください。")
 
 # --- 3. メインルーティング ---
 def main():
