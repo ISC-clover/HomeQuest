@@ -2,9 +2,11 @@ import os
 import streamlit as st
 from hq_api import HomeQuestAPI
 from views import home, groups, quests, shop, group_detail, quest_manage, shop_detail, quest_report, quest_review
+import const
 
 # --- 1. 設定と初期化 ---
-st.set_page_config(page_title="HomeQuest", layout="centered")
+st.set_page_config(**const.SET_PAGE_CONFIG)
+st.markdown(const.HIDE_ST_STYLE, unsafe_allow_html=True)
 
 API_URL = os.getenv("BACKEND_API_URL", "http://backend:8000")
 API_KEY = os.getenv("APP_API_KEY", "your_api_key")
