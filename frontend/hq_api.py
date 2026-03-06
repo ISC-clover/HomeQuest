@@ -56,11 +56,10 @@ class HomeQuestAPI:
         
         result = self._handle_response(res)
         
-        # --- 修正箇所：辞書を丸ごと返すように変更 ---
         if result and "access_token" in result:
             self.token = result["access_token"]
-            return result  # True の代わりに result(辞書) を返す
-        return None        # False の代わりに None を返す
+            return result
+        return None
 
     def get_me(self):
         res = requests.get(f"{self.api_url}/users/me", headers=self._get_headers())

@@ -59,9 +59,7 @@ def page_shop_detail():
     if is_host:
         with st.expander("🛠️ 店主メニュー：商品を入荷する"):
             st.write("新しいアイテムをショップに並べます")
-            
-            # --- ここから st.form を使わずに直接ウィジェットを置きます ---
-            
+
             # 1段目：商品名と価格
             c1, c2 = st.columns([3, 1])
             new_name = c1.text_input("商品名", placeholder="例: ポーション、肩たたき券", key="shop_new_name")
@@ -71,7 +69,7 @@ def page_shop_detail():
             new_desc = st.text_area("説明文", placeholder="アイテムの効果や受け渡し方法など", key="shop_new_desc")
             
             # 3段目：購入制限設定
-            # チェックボックスを変更すると即座に画面更新され、下の入力欄が出現します
+            # チェックボックスを変更すると即座に画面更新され、下の入力欄が出現
             is_limited = st.checkbox("1人あたりの購入回数を制限する", key="shop_is_limited")
             
             limit_val = None
@@ -86,12 +84,11 @@ def page_shop_detail():
                     key="shop_limit_val"
                 )
 
-            # 送信ボタン（通常のボタンなので、Enterキーでは発火しません）
+            # 送信ボタン
             if st.button("入荷する", type="primary", key="shop_add_btn"):
                 if not new_name:
                     st.warning("商品名を入力してください")
                 else:
-                    # 処理ロジックは前回と同じ
                     res = api.add_shop_item(
                         group_id, 
                         new_name, 
@@ -112,7 +109,7 @@ def page_shop_detail():
     # ------------------------------
     # 4. 商品一覧エリア
     # ------------------------------
-    items = group.get("shops", []) # APIのレスポンスに合わせてキーは "shops"
+    items = group.get("shops", [])
 
     if not items:
         st.info("📦 現在、販売されているアイテムはありません。")

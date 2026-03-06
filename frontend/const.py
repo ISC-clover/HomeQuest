@@ -26,9 +26,5 @@ HIDE_ST_STYLE = """
     /* 「Enterを押して適用」のヒント文字を消す */
     [data-testid="InputInstructions"] { display: none !important; }
 
-    /* メイン画面の上の余白詰める */
-    .block-container {
-        padding-top: 1rem !important;
-    }
 </style>
 """

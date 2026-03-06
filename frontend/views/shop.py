@@ -1,11 +1,11 @@
 import time
 import streamlit as st
-from datetime import datetime as dt
+import utils
 
 def page_shop():
     st.title("🛍️ ショップ")
     
-    # --- 🌟 アプリの記憶領域 ---
+    # --- アプリの記憶領域 ---
     if "local_bought" not in st.session_state:
         st.session_state.local_bought = {}
     
@@ -23,15 +23,6 @@ def page_shop():
             st.session_state.current_page = "home"
             st.rerun()
         return
-
-    # --- 🌟 時間をわかりやすく変換する魔法の関数 ---
-    def format_time(iso_str):
-        if not iso_str: return "日時不明"
-        try:
-            parsed = dt.fromisoformat(str(iso_str).replace('Z', '+00:00'))
-            return parsed.strftime("%Y/%m/%d %H:%M") # 「2026/02/27 15:00」の形にする！
-        except:
-            return str(iso_str)[:16].replace('T', ' ')
 
     # --- 自分の全購入履歴を取得 ---
     all_my_purchases = []
@@ -150,9 +141,9 @@ def page_shop():
                                     btn_label = "購入する"
 
                                 if st.button(btn_label, key=f"buy_{group_id}_{item['id']}", 
-                                             disabled=not can_buy, 
-                                             type="primary" if can_buy else "secondary", 
-                                             use_container_width=True):
+                                            disabled=not can_buy, 
+                                            type="primary" if can_buy else "secondary", 
+                                            use_container_width=True):
                                     res = api.purchase_item(item['id'])
                                     if "error" in res: st.error(res["error"])
                                     else:
@@ -173,7 +164,6 @@ def page_shop():
                     c1, c2 = st.columns([3, 1])
                     new_name = c1.text_input("商品名", key=f"new_name_{group_id}_{fk}")
                     
-                    # 🌟 修正ポイント1：価格(pt)に max_value=2147483647 を追加！
                     new_cost = c2.number_input("価格 (pt)", min_value=1, max_value=2147483647, value=100, key=f"new_cost_{group_id}_{fk}")
                     
                     new_desc = st.text_area("説明文", key=f"new_desc_{group_id}_{fk}")
@@ -181,7 +171,6 @@ def page_shop():
                     is_limited = st.checkbox("1人あたりの購入回数を制限する", key=f"limit_check_{group_id}_{fk}")
                     limit_val = None
                     if is_limited:
-                        # 🌟 修正ポイント2：上限回数にも max_value=2147483647 を追加！
                         limit_val = st.number_input("上限回数", min_value=1, max_value=2147483647, value=1, step=1, key=f"limit_val_{group_id}_{fk}")
 
                     if st.button("入荷する", key=f"add_btn_{group_id}_{fk}", type="primary"):
@@ -209,14 +198,13 @@ def page_shop():
                     else:
                         for h in group_history:
                             with st.container(border=True):
-                                # 🌟 ここでいろんなキーの名前から必死に探す！
                                 user_name = h.get('user_name') or h.get('username') or 'メンバー'
                                 item_name = h.get('item_name') or 'アイテム'
                                 pts = h.get('cost_points') or h.get('points') or h.get('price') or h.get('cost') or '---'
                                 raw_date = h.get('created_at') or h.get('purchased_at') or h.get('date') or ''
                                 
                                 st.write(f"👤 **{user_name}** が 🎁 **{item_name}** を購入")
-                                st.caption(f"💰 {pts} pt | 購入日時: {format_time(raw_date)}")
+                                st.caption(f"💰 {pts} pt | 購入日時: {utils.format_time(raw_date)}")
 
             else:
                 # --- 子供専用タブ ---
@@ -228,16 +216,12 @@ def page_shop():
                     else:
                         for h in group_history:
                             with st.container(border=True):
-                                # 🌟 ここも同じく必死に探す！
                                 user_name = h.get('user_name') or h.get('username') or 'メンバー'
                                 item_name = h.get('item_name') or 'アイテム'
                                 pts = h.get('cost_points') or h.get('points') or h.get('price') or h.get('cost') or '---'
                                 raw_date = h.get('created_at') or h.get('purchased_at') or h.get('date') or ''
                                 
                                 st.write(f"👤 **{user_name}** が 🎁 **{item_name}** を購入")
-                                st.caption(f"💰 {pts} pt | 購入日時: {format_time(raw_date)}")
+                                st.caption(f"💰 {pts} pt | 購入日時: {utils.format_time(raw_date)}")
 
-    st.divider()
-    if st.button("🏠 ホームに戻る", key="back_home"):
-        st.session_state.current_page = "home"
-        st.rerun()
+    utils.back_to_home()
