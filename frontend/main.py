@@ -27,16 +27,21 @@ def page_login_signup():
     tab1, tab2 = st.tabs(["ログイン", "新規登録"])
     
     with tab1:
-        id_input = st.text_input("ユーザーID", key="login_id", max_chars=100)
-        pass_input = st.text_input("パスワード", type="password", key="login_pass", max_chars=100)
+        # st.formで囲んでEnterキーでの送信を可能にする
+        with st.form(key="login_form"):
+            id_input = st.text_input("ユーザーID", max_chars=100)
+            pass_input = st.text_input("パスワード", type="password", max_chars=100)
+            login_button = st.form_submit_button("ログイン")
 
-        if st.button("ログイン", type="primary"):
+        if login_button:
+            # 修正: True/False ではなく、レスポンスデータ（辞書）を受け取るように変更
             login_data = st.session_state.api.login(id_input, pass_input)
             
             if login_data:
                 st.session_state.is_logged_in = True
                 
-                # --- 初回ログイン判定によるページ振り分け ---
+                # --- 【重要】初回ログイン判定によるページ振り分け ---
+                #  is_first_login を参照します
                 if login_data.get("is_first_login"):
                     st.session_state.current_page = "groups"  # グループ作成へ
                 else:
@@ -47,10 +52,13 @@ def page_login_signup():
                 st.error("ログイン失敗：IDまたはパスワードが違います")
 
     with tab2:
-        new_name = st.text_input("ユーザー名", max_chars=100)
-        new_pass = st.text_input("パスワード", type="password", max_chars=100)
+        with st.form(key="signup_form"):
+            # schemas.pyに合わせて max_chars=100 を追加（100文字以上打ち込めなくする）
+            new_name = st.text_input("ユーザー名", max_chars=100)
+            new_pass = st.text_input("パスワード", type="password", max_chars=100)
+            signup_button = st.form_submit_button("登録")
 
-        if st.button("登録"):
+        if signup_button:
             # 入力値の検証
             if not new_name or new_name.isspace():
                 st.error("ユーザー名を入力してください")
