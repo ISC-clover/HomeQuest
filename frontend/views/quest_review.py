@@ -1,9 +1,11 @@
 import os
 import time
 import streamlit as st
+import utils
 
 def page_quest_review():
-    st.title("🔍 クエスト承認")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>🔍 クエスト承認</h1></div>', unsafe_allow_html=True)
     api = st.session_state.api
     
     # セッションから対象データを取得
@@ -108,3 +110,5 @@ def page_quest_review():
                 time.sleep(1)
                 st.session_state.current_page = "quests"
                 st.rerun()
+
+    utils.back_to_home()

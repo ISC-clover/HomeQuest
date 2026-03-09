@@ -23,18 +23,35 @@ def page_home():
             /* 65% にすることで画像をやや右へ寄せる（値は調整可能） */
             background-position: 100% top;
             background-attachment: fixed;
-            background-color: #f8f8f8;
+            background-color: #3a3a3a;
         }}
         /* コンテンツを読みやすくするための半透明のオーバーレイ */
         .stApp > .main {{
-            background: rgba(255,255,255,0.85);
+            background: transparent;
             padding: 1rem;
             border-radius: 8px;
+        }}
+        /* タイトル看板 */
+        .main-title {{
+            background-color: rgba(62, 39, 35, 0.85);
+            border: 5px solid #8d6e63;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }}
+        .main-title h1 {{
+            margin: 0;
+            color: #fff8e1;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
         }}
         </style>
         """, unsafe_allow_html=True)
 
-    st.title("🏰 ホーム")
+    st.markdown('<div class="main-title"><h1>🏰 ホーム</h1></div>', unsafe_allow_html=True)
     
     # ユーザー情報の取得
     me = st.session_state.api.get_me()

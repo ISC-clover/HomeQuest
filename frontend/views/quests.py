@@ -4,7 +4,8 @@ from datetime import datetime as dt
 import utils
 
 def page_quests():
-    st.title("🛡️ クエストボード")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>🛡️ クエストボード</h1></div>', unsafe_allow_html=True)
 
     api = st.session_state.api
     me = api.get_me()

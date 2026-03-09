@@ -1,9 +1,11 @@
 import streamlit as st
 from PIL import Image
 import time
+import utils
 
 def page_quest_report():
-    st.title("📸 クエスト報告")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>📸 クエスト報告</h1></div>', unsafe_allow_html=True)
     
     api = st.session_state.api
     quest_id = st.session_state.get("report_quest_id")
@@ -71,3 +73,5 @@ def page_quest_report():
                     time.sleep(1.5)
                     st.session_state.current_page = "quests"
                     st.rerun()
+
+    utils.back_to_home()

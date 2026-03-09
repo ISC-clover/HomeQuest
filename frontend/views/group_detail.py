@@ -1,7 +1,9 @@
 import time
 import streamlit as st
+import utils
 
 def page_group_detail():
+    utils.shop_css()
     api = st.session_state.api
     
     # セッションから選択中のグループIDを取得
@@ -35,7 +37,7 @@ def page_group_detail():
         is_host = True
 
     # === 画面描画 ===
-    st.title(f"🏰 {group['group_name']}")
+    st.markdown(f'<div class="main-title"><h1>🏰 {group["group_name"]}</h1></div>', unsafe_allow_html=True)
     st.caption(f"Group ID: {group['id']} | Owner: ID {owner_id}")
     
     if st.button("← グループ一覧に戻る"):
@@ -246,3 +248,5 @@ def page_group_detail():
                     time.sleep(1)
                     st.session_state.current_page = "groups"
                     st.rerun()
+
+    utils.back_to_home()

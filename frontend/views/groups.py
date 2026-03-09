@@ -2,7 +2,8 @@ import streamlit as st
 import utils
 
 def page_groups():
-    st.title("🛡️ グループ")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>🛡️ グループ</h1></div>', unsafe_allow_html=True)
     
     api = st.session_state.api
     me = api.get_me()
