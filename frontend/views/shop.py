@@ -1,11 +1,6 @@
 import time
 import streamlit as st
-<<<<<<< HEAD
 import utils
-=======
-import base64
-from datetime import datetime as dt
->>>>>>> d9028372719600dd62208c773ac1d977d911e624
 
 def page_shop():
     # --- 🖼️ 背景画像の設定 (shop.png を使用) ---
