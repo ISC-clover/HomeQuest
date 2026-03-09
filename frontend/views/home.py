@@ -3,133 +3,148 @@ import os
 import base64
 
 def page_home():
-    # --- 背景画像を設定（既存の処理をそのまま保持） ---
-    img_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'background.png'))
-    if os.path.exists(img_path):
-        with open(img_path, 'rb') as f:
-            img_b64 = base64.b64encode(f.read()).decode()
-        img_url = f"data:image/png;base64,{img_b64}"
-    else:
-        # フォールバック
-        img_url = '/frontend/static/images/background.png'
+    # --- 画像のベース64変換関数 ---
+    def get_base64_img(path):
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                return base64.b64encode(f.read()).decode()
+        return None
 
-    # --- カスタムCSS（背景設定 ＋ 新レイアウト用のボタン設定） ---
+    # 合成済みの背景画像を読み込み
+    bg_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'background.png'))
+    bg_b64 = get_base64_img(bg_path)
+
+    # --- CSSで要素の位置を強制固定 ---
     st.markdown(f"""
         <style>
-        /* 既存の背景・オーバーレイ設定 */
+        /* 画面全体の固定 */
         .stApp {{
-            background-image: url('{img_url}');
-            background-size: 90% auto;
-            background-repeat: no-repeat;
-            background-position: 100% top;
-            background-attachment: fixed;
-            background-color: #3a3a3a;
+            background-image: url('data:image/png;base64,{bg_b64}');
+            background-size: cover;
+            background-position: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden !important;
         }}
-        .stApp > .main {{
-            background: transparent;
-            padding: 1rem;
-            border-radius: 8px;
-        }}
-        /* タイトル看板 */
-        .main-title {{
-            background-color: rgba(62, 39, 35, 0.85);
-            border: 5px solid #8d6e63;
+        .stApp > .main {{ background: transparent; }}
+
+        /* ★ 1. 吹き出しを頭の上に固定 */
+        .speech-bubble {{
+            position: fixed;
+            top: 10vh;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.85);
+            border: 3px solid #333;
             border-radius: 15px;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
-            margin-bottom: 25px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-        }}
-        .main-title h1 {{
-            margin: 0;
-            color: #fff8e1;
-            font-family: 'Courier New', Courier, monospace;
+            color: #111;
+            font-size: 1.2rem;
             font-weight: bold;
-            text-shadow: 2px 2px 2px rgba(0,0,0,0.5);
-        
-        /* 新規: 下部の3つのボタンを四角く大きくするための設定 */
-        div[data-testid="column"] button {{
-            height: 120px;
-            font-size: 18px;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.3);
+            z-index: 50;
+        }}
+
+        /* ★ 2. ヘッダー部を画面「上部」に固定 */
+        div[data-testid="stHorizontalBlock"]:has(.header-marker) {{
+            position: fixed;
+            top: 2vh;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 95%;
+            z-index: 100;
+        }}
+
+        /* ★ 3. ネームプレートを固定 */
+        .name-plate {{
+            position: fixed;
+            bottom: 15vh;
+            left: 50%;
+            transform: translateX(-50%);
             font-weight: bold;
-            border-radius: 15px;
+            color: white;
+            text-shadow: 2px 2px 4px black, -1px -1px 4px black;
+            font-size: 1.3rem;
+            z-index: 50;
+            width: 100%;
+            text-align: center;
+        }}
+
+        /* ★ 4. メニューボタン群を画面の「さらに下」に固定 */
+        div[data-testid="stHorizontalBlock"]:has(.menu-marker) {{
+            position: fixed;
+            bottom: 2vh; /* ←ここを5vhから2vhにしてさらに下げました！ */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 800px;
+            z-index: 100;
+        }}
+
+        /* RPG風メインボタンの装飾 */
+        button[kind="primary"] {{
+            height: 60px !important;
+            font-size: 18px !important;
+            font-weight: bold;
+            border-radius: 12px;
+            background-color: rgba(0, 40, 60, 0.8) !important;
+            border: 2px solid #00d4ffaa !important;
+            color: white !important;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.6);
+            transition: 0.3s;
         }}
         
-        /* 新規: 右上の設定ボタンだけは通常サイズに戻す */
-        .settings-btn button {{
-            height: auto !important;
-            padding: 5px 15px !important;
+        button[kind="primary"]:hover {{
+            background-color: rgba(0, 100, 150, 0.9) !important;
+            border-color: #ffffff !important;
+            transform: translateY(-2px);
+        }}
+
+        /* 余計な要素を隠す */
+        [data-testid="stHeader"], [data-testid="stImageToolbar"] {{
+            display: none !important;
         }}
         </style>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    st.markdown('<div class="main-title"><h1>🏰 ホーム</h1></div>', unsafe_allow_html=True)
-    
-    # ユーザー情報の取得
+    # --- ユーザー情報の取得 ---
     me = st.session_state.api.get_me()
     user_name = me.get('user_name', 'ゲスト') if "error" not in me else 'ゲスト'
 
-    st.write("") # 余白
-
-    # --- 中央エリア：ステータスバー、キャラクター、吹き出し (d) ---
-    col_left, col_center, col_right = st.columns([1, 6, 1]) # 中央を広く取るために比率を調整
-    
-    with col_left:
-        # ラフ案左側の縦棒（HPとEXPのプログレスバー）
-        st.caption("❤️ HP")
-        st.progress(80) # 仮の数値
-        st.caption("✨ EXP")
-        st.progress(45) # 仮の数値
-
-    with col_center:
-        # 吹き出し (d)
-        st.markdown("""
-            <div style="border: 2px solid #ccc; border-radius: 15px; padding: 10px; margin-bottom: 15px; text-align: center; background-color: rgba(255,255,255,0.9); color: black;">
-                「今日もクエストがんばろう！」
-            </div>
-        """, unsafe_allow_html=True)
-
-        # --- キャラクター画像を表示 ---
-        # 画像の正しいパスを取得
-        char_img_path = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'static', 'images', 'character.png'))
-        
-        # 画像が存在するか確認してから表示
-        if os.path.exists(char_img_path):
-            # use_container_width=True で、中央カラムの幅いっぱいに大きく表示します
-            st.image(char_img_path, width=900)
-        else:
-            st.error("勇者はお出かけ中のようです...")
-        
-        # ユーザー名を表示
-        st.markdown(f"<p style='text-align: center; margin-top: 10px; font-weight: bold;'>{user_name}</p>", unsafe_allow_html=True)
-
-    st.write("")
-    st.write("---") # 地面のような区切り線
-
-    # --- 下部：メインメニューボタン（3列配置） ---
-    menu_col1, menu_col2, menu_col3 = st.columns(3)
-
-    with menu_col1:
-        if st.button("🛡️ グループ", use_container_width=True):
-            st.session_state.current_page = "groups"
-            st.rerun()
-
-    with menu_col2:
-        # クエスト（メイン機能っぽく目立たせるため type="primary" にしています）
-        if st.button("⚔️ クエスト", type="primary", use_container_width=True):
-            st.session_state.current_page = "quests"
-            st.rerun()
-
-    with menu_col3:
-        if st.button("🎁 ショップ", use_container_width=True):
-            st.session_state.current_page = "shop"
-            st.rerun()
-
-    # --- サイドバーにログアウト（既存の処理をそのまま保持） ---
-    with st.sidebar:
-        st.write(f"ログイン中: {user_name}")
-        if st.button("ログアウト"):
+    # --- ① 上部：ヘッダー（ログイン・ログアウト） ---
+    h_left, h_right = st.columns([4, 1])
+    with h_left:
+        st.markdown(f"<span class='header-marker'></span><p style='color: white; text-shadow: 2px 2px 4px black; font-size: 1.2rem; margin-top: 10px; margin-left: 10px;'>👤 <b>{user_name}</b> ログイン中</p>", unsafe_allow_html=True)
+    with h_right:
+        if st.button("ログアウト", key="logout_top"):
             st.session_state.is_logged_in = False
-            st.session_state.api.token = None
             st.session_state.current_page = "home"
             st.rerun()
+
+    # --- ② 吹き出し ---
+    st.markdown(f'<div class="speech-bubble">「今日もクエストがんばろう、{user_name}！」</div>', unsafe_allow_html=True)
+
+    # --- ③ ネームプレート ---
+    st.markdown(f'<div class="name-plate">{user_name}</div>', unsafe_allow_html=True)
+
+    # --- ④ 下部：メインメニュー ---
+    # ★ポイント：3つのカラムすべてに同じ目印を置くことで、強制的に高さを揃えます！
+    menu_col1, menu_col2, menu_col3 = st.columns(3)
+    
+    with menu_col1:
+        st.markdown("<div class='menu-marker' style='display:none;'></div>", unsafe_allow_html=True)
+        if st.button("🛡️ グループ", type="primary", use_container_width=True, key="btn_grp"):
+            st.session_state.current_page = "groups"; st.rerun()
+            
+    with menu_col2:
+        st.markdown("<div class='menu-marker' style='display:none;'></div>", unsafe_allow_html=True)
+        if st.button("⚔️ クエスト", type="primary", use_container_width=True, key="btn_qst"):
+            st.session_state.current_page = "quests"; st.rerun()
+            
+    with menu_col3:
+        st.markdown("<div class='menu-marker' style='display:none;'></div>", unsafe_allow_html=True)
+        if st.button("🎁 ショップ", type="primary", use_container_width=True, key="btn_shp"):
+            st.session_state.current_page = "shop"; st.rerun()
