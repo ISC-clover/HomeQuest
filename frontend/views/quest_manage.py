@@ -1,8 +1,10 @@
 import time
 import streamlit as st
 from datetime import datetime as dt
+import utils
 
 def page_quest_manage():
+    utils.shop_css()
     api = st.session_state.api
     
     # セッションから選択されたグループIDを取得
@@ -27,7 +29,7 @@ def page_quest_manage():
             st.session_state.current_page = "quests"
             st.rerun()
     with col_h2:
-        st.title(f"🛠️ {detail['group_name']} クエスト管理")
+        st.markdown(f'<div class="main-title"><h1>🛠️ {detail["group_name"]} クエスト管理</h1></div>', unsafe_allow_html=True)
     
     st.divider()
 
@@ -101,3 +103,5 @@ def page_quest_manage():
     with m_tabs[2]:
         st.caption("※ 終了日時を過ぎたクエストです。")
         render_quest_row(ended_q)
+
+    utils.back_to_home()

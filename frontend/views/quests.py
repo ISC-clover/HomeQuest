@@ -1,9 +1,11 @@
 import datetime, time
 import streamlit as st
 from datetime import datetime as dt
+import utils
 
 def page_quests():
-    st.title("🛡️ クエストボード")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>🛡️ クエストボード</h1></div>', unsafe_allow_html=True)
 
     api = st.session_state.api
     me = api.get_me()
@@ -36,15 +38,14 @@ def page_quests():
     # 3. 役割に応じてタブの中身を完全に分ける
     # ----------------------------------
     if is_host:
-        # ホスト（親）が見る4つのタブ
+        # ホスト（親）が見るタブ
         tab_titles = ["⚔️ クエストに挑戦", "👀 承認待ち一覧", "📝 クエスト作成", "🛠️ クエスト管理"]
     else:
-        # 子供（プレイヤー）が見る3つのタブ
+        # 子供（プレイヤー）が見るタブ
         tab_titles = ["⚔️ クエストに挑戦", "⏳ 承認待ち", "✅ 完了済みのクエスト"]
     
     tabs = st.tabs(tab_titles)
 
-    # 共通のデータ準備（仕分け）
     all_todo = [] 
     all_pending = [] 
     all_done = [] 
@@ -87,16 +88,7 @@ def page_quests():
                 if (s_time is None or s_time <= now) and (e_time is None or e_time >= now):
                     all_todo.append({"group_name": g["group_name"], "q": q, "gid": g["id"]})
 
-    # --- 🌟 時間をわかりやすく変換する魔法の関数 ---
-    def format_time(iso_str):
-        if not iso_str: return ""
-        try:
-            parsed = dt.fromisoformat(iso_str)
-            return parsed.strftime("%m/%d %H:%M") # 「02/27 15:00」のような形にする
-        except:
-            return str(iso_str)[:16].replace('T', ' ')
-
-    # --- タブ[0]: ⚔️ クエストに挑戦 (共通) ---
+    # --- タブ[0]: クエストに挑戦 (共通) ---
     with tabs[0]:
         st.subheader("新しいクエスト")
         if not all_todo: st.info("挑戦できるクエストはありません。")
@@ -113,8 +105,8 @@ def page_quests():
                         c1.caption(f"📝 {desc}")
                         
                     # 期間をわかりやすく表示
-                    start_str = format_time(q.get("start_time"))
-                    end_str = format_time(q.get("end_time"))
+                    start_str = utils.format_time(q.get("start_time"))
+                    end_str = utils.format_time(q.get("end_time"))
                     
                     c1.caption(f"🏰 {gname} | 💰 {q['reward_points']} pt")
                     if start_str and end_str:
@@ -232,7 +224,4 @@ def page_quests():
                 st.session_state.current_page = "quest_manage"
                 st.rerun()
 
-    st.divider()
-    if st.button("🏠 ホームに戻る", key="back_home_bot"):
-        st.session_state.current_page = "home"
-        st.rerun()
+    utils.back_to_home()

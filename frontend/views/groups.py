@@ -1,7 +1,9 @@
 import streamlit as st
+import utils
 
 def page_groups():
-    st.title("🛡️ グループ")
+    utils.shop_css()
+    st.markdown('<div class="main-title"><h1>🛡️ グループ</h1></div>', unsafe_allow_html=True)
     
     api = st.session_state.api
     me = api.get_me()
@@ -111,7 +113,4 @@ def page_groups():
         st.text_input("招待コードを入力", key="input_join_code")
         st.button("参加する", type="primary", on_click=handle_join_group)
     
-    st.divider()
-    if st.button("🏠 ホームに戻る"):
-        st.session_state.current_page = "home"
-        st.rerun()
+    utils.back_to_home()
